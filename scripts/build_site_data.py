@@ -91,12 +91,15 @@ def main():
     gate_share = [[round(v / max(1, sum(row)), 4) for v in row] for row in gate_hour]
 
     # 공연 영향
-    shows = defaultdict(lambda: {"dates": set(), "audience": 0, "ratios": [], "peak": 0})
+    shows = defaultdict(lambda: {"dates": set(), "audience": 0, "ratios": [], "peak": 0, "with": set()})
     for r in used:
         if not r["공연명"]:
             continue
         base = baseline[r["dt"].weekday()][r["dt"].hour]
-        s = shows[r["공연명"]]
+        # 같은 시간대 공연 여러 개가 쉼표로 이어져 오므로 첫 공연명으로 묶고 나머지는 함께한 공연으로
+        names = [x.strip() for x in r["공연명"].split(",") if x.strip()]
+        s = shows[names[0]]
+        s["with"].update(names[1:])
         s["dates"].add(r["dt"].date().isoformat())
         s["audience"] = max(s["audience"], int(r["공연관람객수"] or 0))
         s["peak"] = max(s["peak"], r["재차대수"])
@@ -105,7 +108,8 @@ def main():
     show_list = sorted(
         (
             {
-                "name": n.strip(),
+                "name": n,
+                "with": sorted(s["with"] - {n}),
                 "dates": sorted(s["dates"]),
                 "audience": s["audience"],
                 "peakOccupancy": s["peak"],
@@ -144,6 +148,7 @@ def main():
         "gateShare": gate_share,
         "showEffect": {
             "hours": len(all_ratios),
+            "showCount": len(set(shows) | {w for s in shows.values() for w in s["with"]}),
             "meanUplift": round(statistics.mean(all_ratios) - 1, 3) if all_ratios else None,
             "shows": show_list,
         },

@@ -77,7 +77,7 @@ export function Forecast(p: Props) {
                 role="tab"
                 aria-selected={p.dayOffset === i}
                 onClick={() => p.onDay(i)}
-                className={`h-8 rounded-lg px-3.5 text-[14px] font-medium transition-colors ${
+                className={`h-8 rounded-lg px-4 text-[14px] font-medium transition-colors ${
                   p.dayOffset === i ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]' : 'text-ink-2 hover:text-ink'
                 }`}
               >

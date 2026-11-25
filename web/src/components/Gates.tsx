@@ -29,7 +29,7 @@ export function Gates({ loads, hour, best, rows }: { loads: GateLoad[]; hour: nu
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
         <Card className="p-4 sm:p-6">
-          <svg viewBox="0 0 420 300" className="block h-auto w-full" role="img" aria-label="올림픽공원 출입문 개략도">
+          <svg viewBox="0 0 420 300" className="mx-auto block h-auto w-full max-w-[440px]" role="img" aria-label="올림픽공원 출입문 개략도">
             <path
               d="M70 70 C 110 30, 200 18, 270 30 C 340 42, 392 90, 386 150 C 380 214, 340 262, 260 270 C 190 278, 110 276, 70 238 C 34 204, 28 150, 38 114 C 44 92, 56 80, 70 70 Z"
               fill="var(--color-lv0)"
@@ -47,7 +47,7 @@ export function Gates({ loads, hour, best, rows }: { loads: GateLoad[]; hour: nu
                     x={cx}
                     y={cy < 60 ? cy + r + 16 : cy - r - 7}
                     textAnchor="middle"
-                    fontSize="13"
+                    fontSize="15"
                     fontWeight={isBest ? 600 : 500}
                     fill={isBest ? 'var(--color-sign)' : 'var(--color-ink-2)'}
                   >

@@ -2,6 +2,7 @@
 // 예상 재차대수 = 기준표[요일][시] × 월 보정 × (공연 가정 시 공연 영향)
 
 export type Show = {
+  with: string[]
   name: string
   dates: string[]
   audience: number
@@ -25,7 +26,7 @@ export type SiteData = {
   baseline: number[][] // [요일 0=월][시]
   monthFactor: Record<string, number>
   gateShare: number[][] // [시][출입문]
-  showEffect: { hours: number; meanUplift: number | null; shows: Show[] }
+  showEffect: { hours: number; meanUplift: number | null; showCount: number; shows: Show[] }
   daily: Record<string, { entries: number; peak: number; show: string }>
 }
 

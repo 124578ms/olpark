@@ -42,7 +42,7 @@ export default function App() {
             <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={22} height={22} />
             올팍 언제 갈까
           </a>
-          <nav aria-label="섹션" className="hidden gap-6 text-[14px] text-ink-2 sm:flex">
+          <nav aria-label="섹션" className="flex gap-4 text-[13px] text-ink-2 sm:gap-6 sm:text-[14px]">
             {NAV.map((n) => (
               <a key={n.href} href={n.href} className="transition-colors hover:text-ink">
                 {n.label}
