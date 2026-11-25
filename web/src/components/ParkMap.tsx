@@ -16,13 +16,13 @@ const GATES: Record<string, { x: number; y: number }> = {
 }
 
 const VENUES: { name: string; x: number; y: number; rx: number; ry: number; rect?: boolean; main?: boolean; ly?: number }[] = [
-  { name: '올림픽수영경기장', x: 660, y: 230, rx: 62, ry: 34 },
+  { name: '올림픽수영경기장', x: 648, y: 218, rx: 60, ry: 32 },
   { name: 'KSPO DOME', x: 790, y: 310, rx: 78, ry: 46, main: true },
   { name: '티켓링크 라이브 아레나', x: 770, y: 440, rx: 58, ry: 34 },
-  { name: '우리금융아트홀', x: 650, y: 490, rx: 46, ry: 26, rect: true },
+  { name: '우리금융아트홀', x: 610, y: 470, rx: 44, ry: 24, rect: true },
   { name: '벨로드롬', x: 600, y: 600, rx: 66, ry: 30 },
-  { name: '올림픽홀', x: 900, y: 580, rx: 46, ry: 30 },
-  { name: '올림픽테니스경기장', x: 895, y: 470, rx: 50, ry: 28, rect: true },
+  { name: '올림픽홀', x: 875, y: 612, rx: 44, ry: 28 },
+  { name: '올림픽테니스경기장', x: 965, y: 505, rx: 46, ry: 26, rect: true },
   { name: '소마미술관', x: 420, y: 650, rx: 50, ry: 22, rect: true, ly: -34 },
   { name: '올림픽파크텔', x: 150, y: 390, rx: 26, ry: 44, rect: true, ly: -58 },
 ]
@@ -30,8 +30,8 @@ const VENUES: { name: string; x: number; y: number; rx: number; ry: number; rect
 const STATIONS: { name: string; x: number; y: number; lines: { n: string; c: string }[]; anchor: 'start' | 'end' | 'middle'; lx: number; ly: number }[] = [
   // 노선 색은 서울 지하철 노선 표준색
   { name: '올림픽공원역', x: 1070, y: 330, lines: [{ n: '5', c: '#996CAC' }, { n: '9', c: '#BDB092' }], anchor: 'end', lx: -46, ly: 8 },
-  { name: '한성백제역', x: 205, y: 750, lines: [{ n: '9', c: '#BDB092' }], anchor: 'start', lx: 26, ly: 8 },
-  { name: '몽촌토성역', x: 30, y: 750, lines: [{ n: '8', c: '#E6186C' }], anchor: 'start', lx: 26, ly: 8 },
+  { name: '한성백제역', x: 205, y: 750, lines: [{ n: '9', c: '#BDB092' }], anchor: 'end', lx: -26, ly: 8 },
+  { name: '몽촌토성역', x: 30, y: 700, lines: [{ n: '8', c: '#E6186C' }], anchor: 'start', lx: 26, ly: 8 },
 ]
 
 function Venue({ v }: { v: (typeof VENUES)[number] }) {
@@ -118,10 +118,9 @@ export function ParkMap({ loads, best }: { loads: GateLoad[]; best: GateLoad }) 
           [300, 430],
           [470, 200],
           [520, 420],
-          [205, 330],
           [420, 490],
-          [880, 680],
-          [980, 650],
+          [960, 690],
+          [1005, 630],
         ].map(([cx, cy]) => (
           <g key={`${cx}-${cy}`}>
             <circle cx={cx} cy={cy + 4} r={15} fill="rgb(28 32 29 / 0.06)" />
