@@ -40,6 +40,12 @@ const DATASETS = [
   },
   {
     org: '기상청',
+    name: '중기예보 조회서비스',
+    role: '4–10일 뒤 오전·오후 강수확률과 최저·최고기온',
+    href: 'https://www.data.go.kr/data/15059468/openapi.do',
+  },
+  {
+    org: '기상청',
     name: '지상(종관, ASOS) 시간자료 (서울)',
     role: '2025년 비 온 시간대의 주차 감소율 계산',
     href: 'https://www.data.go.kr/data/15057210/openapi.do',

@@ -4,6 +4,7 @@
 - 기상청 단기예보(송파구 방이동 격자 62,126): 시간별 기온·강수확률·하늘·강수형태
 - 서울시 실시간 도시데이터(올림픽공원 POI127): 지금 인구 혼잡도와 12시간 예측
 - 한국체육산업개발 올림픽공원 공연/행사 일정(홈페이지 일정안내가 쓰는 월별 목록): 이번 달·다음 달 공연
+- 기상청 중기예보(서울·인천·경기 육상, 서울 기온): 4–10일 뒤 오전·오후 강수확률과 날씨, 최저·최고기온
 - 한국천문연구원 특일정보(공휴일): 이번 달·다음 달 공휴일 (기상청과 같은 공공데이터포털 키)
 
 키는 환경변수(KMA_KEY, SEOUL_KEY)에서, 없으면 .env에서 읽는다.
@@ -170,6 +171,47 @@ def events(now):
     return sorted(out, key=lambda e: (e["begin"], e["place"]))
 
 
+def mid(key, now):
+    """중기예보: 06시·18시 발표. 4–10일 뒤를 오전·오후 단위로 준다(단기예보가 끝나는 날부터 이어 붙임)."""
+    if not key:
+        return None
+    t = now - timedelta(minutes=30)
+    if t.hour >= 18:
+        base = t.replace(hour=18)
+    elif t.hour >= 6:
+        base = t.replace(hour=6)
+    else:
+        base = (t - timedelta(days=1)).replace(hour=18)
+    tm = base.strftime("%Y%m%d%H") + "00"
+
+    def call(op, reg):
+        q = urllib.parse.urlencode({"serviceKey": key, "regId": reg, "tmFc": tm, "dataType": "JSON", "numOfRows": 10, "pageNo": 1})
+        items = get_json("https://apis.data.go.kr/1360000/MidFcstInfoService/" + op + "?" + q)["response"]["body"]["items"]["item"]
+        return items[0] if isinstance(items, list) else items
+
+    try:
+        land = call("getMidLandFcst", "11B00000")  # 서울·인천·경기 육상
+        ta = call("getMidTa", "11B10101")  # 서울 기온
+    except Exception as e:  # noqa: BLE001
+        print("중기예보 실패:", type(e).__name__, str(e)[:80])
+        return None
+    num = lambda v: None if v in (None, "") else int(float(v))
+    days = {}
+    for n in range(3, 11):
+        if f"wf{n}Am" not in land and f"wf{n}" not in land:
+            continue
+        d = (base + timedelta(days=n)).strftime("%Y-%m-%d")
+        days[d] = {
+            "popAm": num(land.get(f"rnSt{n}Am", land.get(f"rnSt{n}"))),
+            "popPm": num(land.get(f"rnSt{n}Pm", land.get(f"rnSt{n}"))),
+            "wfAm": land.get(f"wf{n}Am", land.get(f"wf{n}", "")),
+            "wfPm": land.get(f"wf{n}Pm", land.get(f"wf{n}", "")),
+            "taMin": num(ta.get(f"taMin{n}")),
+            "taMax": num(ta.get(f"taMax{n}")),
+        }
+    return {"tmFc": tm, "days": days}
+
+
 def holidays(key, now):
     if not key:
         return None
@@ -200,6 +242,7 @@ def main():
         "updatedAt": now.strftime("%Y-%m-%dT%H:%M"),
         "parking": parking(),
         "weather": kma(keys["kma"], now),
+        "mid": mid(keys["kma"], now),
         "people": seoul(keys["seoul"]),
         "events": events(now),
         "holidays": holidays(keys["kma"], now),
@@ -212,6 +255,7 @@ def main():
     print("주차:", live["parking"])
     print("날씨:", w and f'{w["base"]} 발표, {len(w["hours"])}시간')
     print("공연:", live["events"] and [(e["begin"], e["place"], e["title"][:20]) for e in live["events"][:6]])
+    print("중기예보:", live["mid"] and sorted(live["mid"]["days"]))
     print("공휴일:", live["holidays"])
     print("인구:", p and f'{p["level"]} {p["min"]}–{p["max"]}명, 예측 {len(p["forecast"])}개')
 

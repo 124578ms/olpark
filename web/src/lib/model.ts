@@ -51,6 +51,8 @@ export const LEVEL_COLOR = ['var(--color-lv0)', 'var(--color-lv1)', 'var(--color
 export const OPEN_FROM = 6
 export const OPEN_TO = 23 // 그래프에 보여 줄 시간 범위
 export const SHOW_HOURS = [16, 17, 18, 19, 20] // 2025년 공연 기록이 몰린 시간대
+/** 날짜 선택 범위(오늘 포함). 공연·공휴일은 이번 달·다음 달, 날씨는 단기(3일)+중기(10일)까지 있음 */
+export const RANGE_DAYS = 14
 
 export async function loadSite(): Promise<SiteData> {
   const res = await fetch(`${import.meta.env.BASE_URL}data/site.json`)
@@ -58,7 +60,7 @@ export async function loadSite(): Promise<SiteData> {
   return res.json()
 }
 
-const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
+export const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
 
 /** 한국 시간 기준 현재 시각 */
 export function nowKST(): Date {

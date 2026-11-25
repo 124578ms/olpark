@@ -2,6 +2,7 @@
 import type { Scale, SiteData } from './model'
 
 export type WeatherHour = { tmp: number | null; pop: number | null; sky: number; pty: number }
+export type MidDay = { popAm: number | null; popPm: number | null; wfAm: string; wfPm: string; taMin: number | null; taMax: number | null }
 export type ParkEvent = { title: string; place: string; begin: string; end: string; time: string; url: string }
 
 export type Live = {
@@ -10,6 +11,8 @@ export type Live = {
   holidays?: { date: string; name: string }[] | null
   parking: { sum: number; gates: string[] } | null
   weather: { base: string; hours: Record<string, WeatherHour> } | null
+  /** 기상청 중기예보: 4–10일 뒤 오전·오후 */
+  mid?: { tmFc: string; days: Record<string, MidDay> } | null
   people: {
     time: string
     level: string
@@ -90,10 +93,68 @@ export function showImpact(site: SiteData, events: ParkEvent[]): { scale: Scale;
 }
 
 /** 비·눈 예보(강수형태가 있는)가 있는 시각 */
-export function rainHoursOn(live: Live | null, d: Date): number[] {
+const RAINY = /비|눈|소나기/
+
+/** 그날의 단기예보 시간값. 낮(6–21시)을 절반 이상 덮을 때만 쓴다(끝자락 몇 시간만 있으면 중기예보로) */
+function shortHours(live: Live | null, d: Date): [number, WeatherHour][] {
   if (!live?.weather) return []
   const day = isoDate(d)
-  return Object.entries(live.weather.hours)
-    .filter(([k, w]) => k.startsWith(day) && w.pty > 0)
-    .map(([k]) => Number(k.slice(11, 13)))
+  const hs: [number, WeatherHour][] = Object.entries(live.weather.hours)
+    .filter(([k]) => k.startsWith(day))
+    .map(([k, w]) => [Number(k.slice(11, 13)), w])
+  const daytime = hs.filter(([h]) => h >= 6 && h <= 21).length
+  const today = isoDate(new Date()) === day // 오늘은 지난 시간이 빠져 있어도 단기예보를 씀
+  return today || daytime >= 8 ? hs : []
+}
+
+function range(a: number, b: number) {
+  return Array.from({ length: b - a }, (_, i) => a + i)
+}
+
+/** 비·눈 예보 시각. 단기예보가 있으면 시간 단위, 없으면 중기예보 오전(6–11시)·오후(12–23시) 단위(coarse) */
+export function rainHoursOn(live: Live | null, d: Date): { hours: number[]; coarse: boolean } {
+  const short = shortHours(live, d)
+  if (short.length) return { hours: short.filter(([, w]) => w.pty > 0).map(([h]) => h), coarse: false }
+  const m = live?.mid?.days[isoDate(d)]
+  if (!m) return { hours: [], coarse: false }
+  return { hours: [...(RAINY.test(m.wfAm) ? range(6, 12) : []), ...(RAINY.test(m.wfPm) ? range(12, 24) : [])], coarse: true }
+}
+
+/** 시각별 강수확률(0–23시). 단기예보 시간값, 없으면 중기예보 오전·오후값 */
+export function popsOn(live: Live | null, d: Date): (number | null)[] {
+  const out: (number | null)[] = Array(24).fill(null)
+  const short = shortHours(live, d)
+  if (short.length) {
+    for (const [h, w] of short) out[h] = w.pop
+    return out
+  }
+  const m = live?.mid?.days[isoDate(d)]
+  if (m) for (let h = 0; h < 24; h++) out[h] = h < 12 ? m.popAm : m.popPm
+  return out
+}
+
+export type DayWeather = { pop: number | null; rain: boolean; tmin: number | null; tmax: number | null; sky: string }
+
+/** 날짜 칩에 보여 줄 하루 날씨 요약 (낮 6–21시 기준) */
+export function dayWeather(live: Live | null, d: Date): DayWeather | null {
+  const short = shortHours(live, d).filter(([h]) => h >= 6 && h <= 21)
+  if (short.length) {
+    const ws = short.map(([, w]) => w)
+    const tmps = ws.map((w) => w.tmp).filter((t): t is number => t !== null)
+    const pops = ws.map((w) => w.pop).filter((t): t is number => t !== null)
+    const rain = ws.some((w) => w.pty > 0)
+    const cloudy = ws.filter((w) => w.sky >= 4).length > ws.length / 2
+    return {
+      pop: pops.length ? Math.max(...pops) : null,
+      rain,
+      tmin: tmps.length ? Math.round(Math.min(...tmps)) : null,
+      tmax: tmps.length ? Math.round(Math.max(...tmps)) : null,
+      sky: rain ? '비·눈' : cloudy ? '흐림' : '맑음',
+    }
+  }
+  const m = live?.mid?.days[isoDate(d)]
+  if (!m) return null
+  const pops = [m.popAm, m.popPm].filter((t): t is number => t !== null)
+  const rain = RAINY.test(m.wfAm) || RAINY.test(m.wfPm)
+  return { pop: pops.length ? Math.max(...pops) : null, rain, tmin: m.taMin, tmax: m.taMax, sky: rain ? '비·눈' : /흐림/.test(m.wfPm) ? '흐림' : '맑음' }
 }

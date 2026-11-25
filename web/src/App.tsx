@@ -3,8 +3,8 @@ import { DataMethod } from './components/DataMethod'
 import { Forecast } from './components/Forecast'
 import { Gates } from './components/Gates'
 import { ShowImpact } from './components/ShowImpact'
-import { eventsOn, holidayOn, loadLive, rainHoursOn, showImpact, type Live } from './lib/live'
-import { addDays, forecast, gateLoads, holidayEffectOf, loadSite, nowKST, peakWindow, recommendGate, type SiteData } from './lib/model'
+import { dayWeather, eventsOn, holidayOn, loadLive, popsOn, rainHoursOn, showImpact, type Live } from './lib/live'
+import { RANGE_DAYS, addDays, forecast, gateLoads, holidayEffectOf, loadSite, nowKST, peakWindow, recommendGate, type SiteData } from './lib/model'
 
 const NAV = [
   { href: '#answer', label: '예보' },
@@ -34,7 +34,18 @@ export default function App() {
   const showOn = withShow ?? dayEvents.length > 0
   // 일정이 있으면 공연장 규모에 맞는 상승률, 직접 켠 경우는 2025년 전체 평균
   const uplift = showOn ? (impact?.uplift ?? site?.showEffect.meanUplift ?? 0) : 0
-  const rainHours = useMemo(() => rainHoursOn(live, date), [live, date])
+  const rain = useMemo(() => rainHoursOn(live, date), [live, date])
+  const rainHours = rain.hours
+  const pops = useMemo(() => popsOn(live, date), [live, date])
+  // 날짜 칩: 공연·공휴일·날씨 요약
+  const days = useMemo(
+    () =>
+      Array.from({ length: RANGE_DAYS }, (_, i) => {
+        const d = addDays(now, i)
+        return { date: d, show: eventsOn(live, d).length > 0, holiday: holidayOn(live, d), weather: dayWeather(live, d) }
+      }),
+    [live, now],
+  )
   const holiday = useMemo(() => holidayOn(live, date), [live, date])
   const holidayFx = site ? holidayEffectOf(site, holiday) : null
   const hf = holidayFx?.factor ?? 1
@@ -84,9 +95,11 @@ export default function App() {
               events={dayEvents}
               impact={showOn ? impact : null}
               rainHours={rainHours}
+              rainCoarse={rain.coarse}
+              pops={pops}
+              days={days}
               holiday={holiday}
               holidayFx={holidayFx}
-              eventDays={[0, 1, 2].map((i) => eventsOn(live, addDays(now, i)).length > 0)}
               values={values}
               hour={activeHour}
               onHour={setHour}

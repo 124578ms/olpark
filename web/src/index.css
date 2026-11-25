@@ -24,6 +24,14 @@
 
   /* 시그니처: 안내판 남색 */
   --color-sign: #1f2d4a;
+  --color-rain: #2f74b5;
+  --color-rain-soft: rgb(47 116 181 / 0.09);
+  --color-grass: #dcead3;
+  --color-hill: #bcd8ad;
+  --color-hill-line: #9fc68f;
+  --color-water: #cde2ef;
+  --color-paved: #edeae2;
+  --color-road: #dfdbd1;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -60,5 +68,12 @@ body {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* 약도의 작은 이름표는 좁은 화면에서 숨김 (출입문 표지만 남김) */
+@media (max-width: 639px) {
+  .map-minor {
+    display: none;
   }
 }

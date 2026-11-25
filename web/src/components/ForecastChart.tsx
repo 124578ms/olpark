@@ -11,10 +11,12 @@ type Props = {
   withShow: boolean
   animKey: string
   rainHours: number[]
+  /** 시각별 강수확률 (없으면 null) */
+  pops: (number | null)[]
 }
 
 const PAD_L = 4
-const PAD_T = 28
+const PAD_T = 40
 const PAD_B = 28
 
 /** 컨테이너 실제 폭으로 그려서 글자가 작아지지 않게 한다 */
@@ -24,20 +26,22 @@ function useWidth() {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const ro = new ResizeObserver(([e]) => setW(Math.round(e.contentRect.width)))
+    // 숨겨진 동안 폭 0이 오면 무시 (음수 크기 막대 방지)
+    const ro = new ResizeObserver(([e]) => e.contentRect.width > 0 && setW(Math.round(e.contentRect.width)))
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
   return [ref, w] as const
 }
 
-export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, animKey, rainHours }: Props) {
+export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, animKey, rainHours, pops }: Props) {
   const [wrapRef, W] = useWidth()
   const narrow = W < 480
   const H = narrow ? 220 : 260
   const PAD_R = narrow ? 60 : 64
   const hours = Array.from({ length: OPEN_TO - OPEN_FROM + 1 }, (_, i) => OPEN_FROM + i)
-  const max = Math.max(site.thresholds[2], ...hours.map((h) => values[h])) * 1.08
+  // 물방울·강수확률을 막대 위에 그릴 자리를 남긴다
+  const max = Math.max(site.thresholds[2], ...hours.map((h) => values[h])) * (rainHours.length ? 1.25 : 1.08)
   const plotW = W - PAD_L - PAD_R
   const plotH = H - PAD_T - PAD_B
   const step = plotW / hours.length
@@ -82,6 +86,21 @@ export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, a
           </g>
         )}
 
+        {/* 비·눈 예보 시각: 칸 전체를 옅은 파랑으로 */}
+        {hours
+          .filter((h) => rainHours.includes(h))
+          .map((h) => (
+            <rect
+              key={`rainband-${h}`}
+              x={x(h) - (step - barW) / 2}
+              y={PAD_T - 4}
+              width={step}
+              height={plotH + 4}
+              fill="var(--color-rain-soft)"
+              pointerEvents="none"
+            />
+          ))}
+
         {/* 막대 */}
         {hours.map((h, i) => {
           const v = values[h]
@@ -116,19 +135,28 @@ export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, a
           )
         })}
 
-        {/* 비·눈 예보 시각: 막대 위 물방울 */}
+        {/* 비·눈 예보 시각: 막대 위 물방울과 강수확률 */}
         {hours
           .filter((h) => rainHours.includes(h))
-          .map((h) => (
-            <path
-              key={`rain-${h}`}
-              transform={`translate(${x(h) + barW / 2} ${y(values[h]) - 10})`}
-              d="M0 -5 C 2 -2 3.5 0 3.5 1.5 A 3.5 3.5 0 0 1 -3.5 1.5 C -3.5 0 -2 -2 0 -5 Z"
-              fill="var(--color-ink-3)"
-              pointerEvents="none"
-              aria-hidden
-            />
-          ))}
+          .map((h) => {
+            const cx = x(h) + barW / 2
+            const top = y(values[h])
+            const pop = pops[h]
+            return (
+              <g key={`rain-${h}`} pointerEvents="none" aria-hidden>
+                <path
+                  transform={`translate(${cx} ${top - 13}) scale(${narrow ? 1.25 : 1.5})`}
+                  d="M0 -6.5 C 2.6 -3 4.6 -0.4 4.6 1.6 A 4.6 4.6 0 0 1 -4.6 1.6 C -4.6 -0.4 -2.6 -3 0 -6.5 Z"
+                  fill="var(--color-rain)"
+                />
+                {!narrow && pop !== null && (
+                  <text x={cx} y={top - 28} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--color-rain)" className="num">
+                    {pop}%
+                  </text>
+                )}
+              </g>
+            )
+          })}
 
         {/* 지금 */}
         {nowHour !== null && nowHour >= OPEN_FROM && nowHour <= OPEN_TO && (
