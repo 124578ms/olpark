@@ -59,30 +59,39 @@ def kma(key, now):
     t = now - timedelta(minutes=15)
     base_hours = [2, 5, 8, 11, 14, 17, 20, 23]
     past = [h for h in base_hours if h <= t.hour]
-    base = t.replace(hour=past[-1]) if past else (t - timedelta(days=1)).replace(hour=23)
-    q = urllib.parse.urlencode(
-        {
-            "serviceKey": key,
-            "pageNo": 1,
-            "numOfRows": 1500,
-            "dataType": "JSON",
-            "base_date": base.strftime("%Y%m%d"),
-            "base_time": f"{base.hour:02d}00",
-            "nx": 62,
-            "ny": 126,
-        }
-    )
-    try:
-        items = get_json("https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?" + q)["response"]["body"]["items"]["item"]
-    except Exception as e:  # noqa: BLE001
-        print("기상청 실패:", type(e).__name__, str(e)[:80])
-        return None
+    latest = t.replace(hour=past[-1]) if past else (t - timedelta(days=1)).replace(hour=23)
+    # 최근 발표분은 발표 뒤 시간만 담고 있어, 오늘 이미 지난 시간은 어제 23시 발표분으로 채운다
+    early = (now - timedelta(days=1)).replace(hour=23)
+    bases = [early, latest] if latest.strftime("%Y%m%d%H") != early.strftime("%Y%m%d%H") else [latest]
+
     hours = {}
-    for it in items:
-        if it["category"] not in ("TMP", "POP", "SKY", "PTY", "PCP"):
+    for base in bases:  # 뒤의(최근) 발표가 앞의 값을 덮어씀
+        q = urllib.parse.urlencode(
+            {
+                "serviceKey": key,
+                "pageNo": 1,
+                "numOfRows": 1500,
+                "dataType": "JSON",
+                "base_date": base.strftime("%Y%m%d"),
+                "base_time": f"{base.hour:02d}00",
+                "nx": 62,
+                "ny": 126,
+            }
+        )
+        try:
+            items = get_json("https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?" + q)["response"]["body"]["items"]["item"]
+        except Exception as e:  # noqa: BLE001
+            print("기상청 실패:", base.strftime("%m-%d %H시"), type(e).__name__, str(e)[:80])
             continue
-        k = f'{it["fcstDate"][:4]}-{it["fcstDate"][4:6]}-{it["fcstDate"][6:]}T{it["fcstTime"][:2]}'
-        hours.setdefault(k, {})[it["category"].lower()] = it["fcstValue"]
+        fresh = {}
+        for it in items:
+            if it["category"] not in ("TMP", "POP", "SKY", "PTY"):
+                continue
+            k = f'{it["fcstDate"][:4]}-{it["fcstDate"][4:6]}-{it["fcstDate"][6:]}T{it["fcstTime"][:2]}'
+            fresh.setdefault(k, {})[it["category"].lower()] = it["fcstValue"]
+        hours.update(fresh)
+    if not hours:
+        return None
     out = {}
     for k, v in sorted(hours.items()):
         out[k] = {
@@ -91,6 +100,7 @@ def kma(key, now):
             "sky": int(v.get("sky", 0)),  # 1 맑음 3 구름많음 4 흐림
             "pty": int(v.get("pty", 0)),  # 0 없음 1 비 2 비/눈 3 눈 4 소나기
         }
+    base = latest
     return {"base": base.strftime("%Y-%m-%dT%H:00"), "hours": out}
 
 
