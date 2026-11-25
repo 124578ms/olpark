@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* 방향: 차분한 · 정확한 · 산책하듯 여유로운 / 세계: 공원 안내판, 잔디, 주차 표지판 */
+@theme {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo",
+    "Noto Sans KR", sans-serif;
+
+  /* 미색 중립 램프 */
+  --color-paper: #f6f5f0;
+  --color-surface: #ffffff;
+  --color-sunk: #efeee8;
+  --color-ink: #1c201d;
+  --color-ink-2: #565d57;
+  --color-ink-3: #868d87;
+  --color-line: rgb(28 32 29 / 0.08);
+  --color-line-strong: rgb(28 32 29 / 0.14);
+
+  /* 강조: 공원 녹색 하나, 혼잡 농도 4단계 */
+  --color-park: #2e6a4d;
+  --color-lv0: #dbe8df;
+  --color-lv1: #a7cbb4;
+  --color-lv2: #5d9a77;
+  --color-lv3: #c0663a;
+
+  /* 시그니처: 안내판 남색 */
+  --color-sign: #1f2d4a;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all; /* 한국어는 어절 단위로 줄바꿈 */
+  overflow-wrap: anywhere;
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-park);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,18 @@
+# 비밀값
+.env
+# 원본·중간 데이터 (용량 큼, 스크립트로 재생성)
+data/d04/
+data/d04_fetch.log
+data/d05_raw.json
+# 빌드 산출물
+node_modules/
+web/dist/
+# 실시간 데이터는 배포 때 GitHub Actions가 새로 받음
+web/public/data/live.json
+# 로컬 작업 문서·도구 (저장소에 올리지 않음)
+.claude/
+*.hwp
+all-public-data-*.md
+service-design-*.md
+design-direction.md
+__pycache__/
