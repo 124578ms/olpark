@@ -11,7 +11,8 @@ import {
   type GateLoad,
   type SiteData,
 } from '../lib/model'
-import { weatherAt, weatherText, type Live } from '../lib/live'
+import { weatherAt, weatherText, type Live, type ParkEvent } from '../lib/live'
+import type { Scale } from '../lib/model'
 import { ForecastChart } from './ForecastChart'
 import { LiveStrip } from './LiveStrip'
 import { Card, GateChip, LevelBadge, NumberRoll } from './ui'
@@ -29,6 +30,15 @@ type Props = {
   nowHour: number | null
   gate: GateLoad
   live: Live | null
+  events: ParkEvent[]
+  impact: { scale: Scale; uplift: number } | null
+  eventDays: boolean[]
+}
+
+const SCALE_TEXT: Record<Scale, string> = {
+  large: '관람객 1만 명 이상',
+  mid: '관람객 3천–1만 명',
+  small: '관람객 3천 명 미만',
 }
 
 const DAYS = ['오늘', '내일', '모레']
@@ -57,6 +67,19 @@ export function Forecast(p: Props) {
       <h1 id="answer" className="mt-2 max-w-[20ch] text-balance text-[30px] font-semibold leading-[1.25] tracking-[-0.02em] sm:text-[44px]">
         {subject} 올림픽공원은 {rangeText(ps, pe)}가 가장 붐벼요
       </h1>
+      {p.events.length > 0 && (
+        <ul className="mt-4 flex flex-col gap-1 text-[15px]" aria-label={`${subject} 공연`}>
+          {p.events.slice(0, 3).map((e) => (
+            <li key={e.url} className="flex min-w-0 items-baseline gap-2">
+              <span className="shrink-0 text-ink-3">{e.place.replace('올림픽공원 ', '')}</span>
+              <a href={e.url} target="_blank" rel="noreferrer" className="truncate text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+                {e.title}
+              </a>
+            </li>
+          ))}
+          {p.events.length > 3 && <li className="text-[13px] text-ink-3">외 {p.events.length - 3}건</li>}
+        </ul>
+      )}
       <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-[15px] text-ink-2">
         <span>
           한산한 시간 <strong className="font-medium text-ink">{hourLabel(quiet)}</strong>
@@ -82,11 +105,14 @@ export function Forecast(p: Props) {
                 }`}
               >
                 {d}
+                {p.eventDays[i] && (
+                  <span className="ml-1.5 inline-block h-1.5 w-1.5 -translate-y-0.5 rounded-full bg-park" aria-label="공연 있음" />
+                )}
               </button>
             ))}
           </div>
           <label className="inline-flex cursor-pointer items-center gap-2.5 text-[14px] text-ink-2">
-            <span>저녁 공연이 있는 날로 보기</span>
+            <span>{p.events.length > 0 ? '공연 영향 반영' : '저녁 공연이 있는 날로 보기'}</span>
             <span className="relative inline-flex">
               <input
                 type="checkbox"
@@ -138,7 +164,13 @@ export function Forecast(p: Props) {
             ))}
           </ul>
         </div>
-        {p.withShow && uplift !== null && (
+        {p.withShow && p.impact && (
+          <p className="mt-3 text-[13px] text-ink-3">
+            2025년 {SCALE_TEXT[p.impact.scale]} 공연은 공연 시간대 주차가 같은 요일·시각보다 {formatPct(p.impact.uplift)} 많았어요(중앙값). 그
+            비율을 16–20시에 반영했어요
+          </p>
+        )}
+        {p.withShow && !p.impact && uplift !== null && (
           <p className="mt-3 text-[13px] text-ink-3">
             2025년 공연 시간대는 같은 요일·시각보다 주차가 평균 {formatPct(uplift)} 많았어요. 그 비율을 16–20시에 반영했어요
           </p>

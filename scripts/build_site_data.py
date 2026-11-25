@@ -121,6 +121,16 @@ def main():
     )
     all_ratios = [r for s in shows.values() for r in s["ratios"]]
 
+    # 관람객 규모별 공연 영향(공연별 상승률의 중앙값). 앞으로의 공연은 공연장 규모로 이 값을 골라 쓴다
+    def scale_of(aud):
+        return "large" if aud >= 10000 else "mid" if aud >= 3000 else "small"
+
+    by_scale = defaultdict(list)
+    for s in shows.values():
+        if s["ratios"]:
+            by_scale[scale_of(s["audience"])].append(statistics.mean(s["ratios"]) - 1)
+    scale_uplift = {k: {"uplift": round(statistics.median(v), 3), "shows": len(v)} for k, v in sorted(by_scale.items())}
+
     # 일별 요약 (연간 달력)
     daily = defaultdict(lambda: {"entries": 0, "peak": 0, "show": ""})
     for r in used:
@@ -148,6 +158,7 @@ def main():
         "gateShare": gate_share,
         "showEffect": {
             "hours": len(all_ratios),
+            "byScale": scale_uplift,  # small < 3,000명 ≤ mid < 10,000명 ≤ large
             "showCount": len(set(shows) | {w for s in shows.values() for w in s["with"]}),
             "meanUplift": round(statistics.mean(all_ratios) - 1, 3) if all_ratios else None,
             "shows": show_list,
@@ -162,6 +173,7 @@ def main():
     print("등급 기준(50/75/90%):", thresholds)
     print("월 보정:", month_factor, "| 일수:", dict(sorted(month_n.items())))
     print("공연 시간 평균 상승률:", site["showEffect"]["meanUplift"], "| 공연 수:", len(show_list))
+    print("규모별 공연 영향(중앙값):", scale_uplift)
     print("토요일 기준표 10–20시:", baseline[5][10:21])
     for s in show_list[:5]:
         print("  ", s["name"][:30], s["dates"][:2], s["audience"], s["uplift"])

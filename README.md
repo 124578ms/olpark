@@ -11,6 +11,7 @@
 | 올림픽공원 입출차정보(전체구역) | 한국체육산업개발 (문화공공데이터광장) | 시간대별 주차 대수, 출입문 비율 |
 | 올림픽공원 차량입출차·공연·날씨 연계 데이터 | 한국체육산업개발 (문화공공데이터광장) | 2025년 공연 시간대와 관람객 수 |
 | 올림픽공원 실시간 주차현황 | 한국체육산업개발 | 지금 동2·남2·북2문 주차 대수 |
+| 올림픽공원 공연/행사 일정안내 | 한국체육산업개발 (홈페이지 월별 목록) | 사흘 안의 공연과 공연장 규모 |
 | 실시간 도시데이터 (올림픽공원) | 서울특별시 | 지금 공원 안 인구와 혼잡도 |
 | 단기예보 조회서비스 | 기상청 | 시간별 기온·하늘·강수확률 |
 
@@ -21,7 +22,7 @@ scripts/fetch_d04.py         입출차 원본 수집 (API_CPM_008)
 scripts/fetch_d05.py         공연 연계 데이터 수집 (API_CPM_009)
 scripts/aggregate_hourly.py  원본 → data/hourly.csv (시간별 입차·재차대수·공연)
 scripts/build_site_data.py   hourly.csv → web/public/data/site.json (기준표·등급·공연 영향)
-scripts/fetch_live.py        실시간 주차·인구·날씨 → web/public/data/live.json
+scripts/fetch_live.py        실시간 주차·인구·날씨·공연 일정 → web/public/data/live.json
 web/                         React + Vite + Tailwind 정적 사이트
 .github/workflows/deploy.yml 30분마다 실시간 데이터를 받아 GitHub Pages에 배포
 ```

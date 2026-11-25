@@ -21,6 +21,12 @@ const DATASETS = [
     href: 'https://www.data.go.kr/data/15168686/openapi.do',
   },
   {
+    org: '한국체육산업개발',
+    name: '올림픽공원 공연/행사 일정안내',
+    role: '오늘부터 사흘 안의 공연과 공연장 규모',
+    href: 'https://www.ksponco.or.kr/olympicpark/menu.es?mid=a20301010000',
+  },
+  {
     org: '서울특별시',
     name: '서울시 실시간 도시데이터 (올림픽공원)',
     role: '지금 공원 안 인구 범위와 혼잡도',
@@ -34,7 +40,7 @@ const DATASETS = [
   },
 ]
 
-const PLANNED = ['한국체육산업개발 공연·대관정보 — 앞으로의 공연 일정']
+const PLANNED: string[] = []
 
 export function DataMethod({ site }: { site: SiteData }) {
   const s = site.source
@@ -55,12 +61,16 @@ export function DataMethod({ site }: { site: SiteData }) {
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-[13px] text-ink-3">연결 중인 데이터</p>
-          <ul className="mt-2 flex flex-col gap-1.5 text-[13px] text-ink-2">
-            {PLANNED.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
+          {PLANNED.length > 0 && (
+            <>
+              <p className="mt-4 text-[13px] text-ink-3">연결 중인 데이터</p>
+              <ul className="mt-2 flex flex-col gap-1.5 text-[13px] text-ink-2">
+                {PLANNED.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            </>
+          )}
         </Card>
 
         <Card className="p-6">
@@ -73,7 +83,8 @@ export function DataMethod({ site }: { site: SiteData }) {
               <span className="text-ink">2.</span> 공연이 없던 날만 모아 요일·시각별 중앙값으로 기준표를 만듭니다
             </li>
             <li>
-              <span className="text-ink">3.</span> 공연이 있던 시간대가 기준표보다 얼마나 많았는지로 공연 영향을 구합니다
+              <span className="text-ink">3.</span> 공연이 있던 시간대가 기준표보다 얼마나 많았는지로 공연 영향을 구하고, 앞으로의 공연은
+              공연장 규모에 맞는 값을 16–20시에 더합니다
             </li>
             <li>
               <span className="text-ink">4.</span> 혼잡 등급은 낮 시간 주차 대수의 상위 50·25·10% 기준으로 나눕니다

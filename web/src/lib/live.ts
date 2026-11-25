@@ -1,8 +1,12 @@
 // 실시간·예보 데이터 (scripts/fetch_live.py가 30분마다 만든 live.json)
+import type { Scale, SiteData } from './model'
 
 export type WeatherHour = { tmp: number | null; pop: number | null; sky: number; pty: number }
+export type ParkEvent = { title: string; place: string; begin: string; end: string; time: string; url: string }
+
 export type Live = {
   updatedAt: string
+  events?: ParkEvent[] | null
   parking: { sum: number; gates: string[] } | null
   weather: { base: string; hours: Record<string, WeatherHour> } | null
   people: {
@@ -49,4 +53,31 @@ export function clockText(s: string) {
   const ap = h < 12 ? '오전' : '오후'
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${ap} ${h12}:${m[2]}`
+}
+
+export function isoDate(d: Date) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/** 그날 열리는 공연 (기간에 걸친 공연 포함) */
+export function eventsOn(live: Live | null, d: Date): ParkEvent[] {
+  const day = isoDate(d)
+  return (live?.events ?? []).filter((e) => e.begin <= day && day <= e.end)
+}
+
+/** 공연장 이름으로 규모를 어림한다 (KSPO DOME 약 1만 5천 석, 핸드볼경기장·올림픽홀 3천–5천 석, 그 밖은 소규모) */
+export function venueScale(place: string): Scale {
+  if (/KSPO|체조/i.test(place)) return 'large'
+  if (/핸드볼|라이브 아레나|올림픽홀/.test(place)) return 'mid'
+  return 'small'
+}
+
+const ORDER: Scale[] = ['small', 'mid', 'large']
+
+/** 그날 가장 큰 공연의 규모와, 2025년 같은 규모 공연의 주차 상승률 */
+export function showImpact(site: SiteData, events: ParkEvent[]): { scale: Scale; uplift: number } | null {
+  if (events.length === 0) return null
+  const scale = events.map((e) => venueScale(e.place)).reduce((a, b) => (ORDER.indexOf(b) > ORDER.indexOf(a) ? b : a))
+  const uplift = site.showEffect.byScale[scale]?.uplift ?? site.showEffect.meanUplift ?? 0
+  return { scale, uplift }
 }

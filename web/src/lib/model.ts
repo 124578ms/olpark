@@ -1,6 +1,8 @@
 // site.json(파이썬에서 생성)을 읽어 날짜별 시간대 예보를 계산한다.
 // 예상 재차대수 = 기준표[요일][시] × 월 보정 × (공연 가정 시 공연 영향)
 
+export type Scale = 'small' | 'mid' | 'large'
+
 export type Show = {
   with: string[]
   name: string
@@ -26,7 +28,14 @@ export type SiteData = {
   baseline: number[][] // [요일 0=월][시]
   monthFactor: Record<string, number>
   gateShare: number[][] // [시][출입문]
-  showEffect: { hours: number; meanUplift: number | null; showCount: number; shows: Show[] }
+  showEffect: {
+    hours: number
+    meanUplift: number | null
+    showCount: number
+    shows: Show[]
+    /** 관람객 규모별 공연 영향 중앙값: small < 3,000명 ≤ mid < 10,000명 ≤ large */
+    byScale: Partial<Record<Scale, { uplift: number; shows: number }>>
+  }
   daily: Record<string, { entries: number; peak: number; show: string }>
 }
 
@@ -77,11 +86,11 @@ function weekdayIndex(d: Date): number {
   return (d.getDay() + 6) % 7
 }
 
-export function forecast(site: SiteData, d: Date, withShow: boolean): number[] {
+/** uplift: 공연 시간대(16–20시)에 더할 비율, 공연이 없으면 0 */
+export function forecast(site: SiteData, d: Date, uplift: number): number[] {
   const base = site.baseline[weekdayIndex(d)]
   const mf = site.monthFactor[String(d.getMonth() + 1)] ?? 1
-  const uplift = site.showEffect.meanUplift ?? 0
-  return base.map((v, h) => Math.round(v * mf * (withShow && SHOW_HOURS.includes(h) ? 1 + uplift : 1)))
+  return base.map((v, h) => Math.round(v * mf * (SHOW_HOURS.includes(h) ? 1 + uplift : 1)))
 }
 
 export function levelOf(site: SiteData, v: number): Level {

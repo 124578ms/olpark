@@ -3,6 +3,7 @@
 - 한국체육산업개발 올림픽공원 실시간 주차현황: 동2·남2·북2문 주차 합계
 - 기상청 단기예보(송파구 방이동 격자 62,126): 시간별 기온·강수확률·하늘·강수형태
 - 서울시 실시간 도시데이터(올림픽공원 POI127): 지금 인구 혼잡도와 12시간 예측
+- 한국체육산업개발 올림픽공원 공연/행사 일정(홈페이지 일정안내가 쓰는 월별 목록): 이번 달·다음 달 공연
 
 키는 환경변수(KMA_KEY, SEOUL_KEY, PARKING_KEY)에서, 없으면 .env에서 읽는다.
 하나가 실패해도 나머지는 저장한다(그 항목은 null).
@@ -121,6 +122,45 @@ def seoul(key):
     }
 
 
+EVENTS_URL = "https://www.ksponco.or.kr/olympicpark/eventInfo/eventInfoListAjax.es"
+EVENT_VIEW = "https://www.ksponco.or.kr/olympicpark/eventInfo/eventInfoView.es?mid=a20301010100&evtSeq="
+
+
+def events(now):
+    """이번 달과 다음 달 공연 중 아직 끝나지 않은 것"""
+    first = now.replace(day=1)
+    months = [first, (first + timedelta(days=32)).replace(day=1)]
+    seen, out = set(), []
+    for m in months:
+        body = json.dumps({"nowYM": m.strftime("%Y%m"), "plcCd": ""}).encode()
+        req = urllib.request.Request(
+            EVENTS_URL,
+            data=body,
+            headers={"Content-Type": "application/json;charset=UTF-8", "User-Agent": "olpark-forecast/1.0"},
+        )
+        try:
+            data = json.loads(urllib.request.urlopen(req, timeout=30).read().decode("utf-8"))
+        except Exception as e:  # noqa: BLE001
+            print("공연 일정 실패:", m.strftime("%Y-%m"), type(e).__name__, str(e)[:80])
+            return None
+        for it in data[0] + data[1]:
+            seq = it.get("evtSeq")
+            if seq in seen or not it.get("beginDt") or (it.get("endDt") or "") < now.strftime("%Y-%m-%d"):
+                continue
+            seen.add(seq)
+            out.append(
+                {
+                    "title": " ".join((it.get("title") or "").split()),
+                    "place": " ".join((it.get("plc") or "").split()),
+                    "begin": it["beginDt"],
+                    "end": it.get("endDt") or it["beginDt"],
+                    "time": " ".join((it.get("tm") or "").split()),
+                    "url": EVENT_VIEW + str(seq),
+                }
+            )
+    return sorted(out, key=lambda e: (e["begin"], e["place"]))
+
+
 def main():
     now = datetime.now(KST)
     keys = env_keys()
@@ -129,6 +169,7 @@ def main():
         "parking": parking(keys["parking"]),
         "weather": kma(keys["kma"], now),
         "people": seoul(keys["seoul"]),
+        "events": events(now),
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump(live, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
@@ -137,6 +178,7 @@ def main():
     print("저장:", OUT)
     print("주차:", live["parking"])
     print("날씨:", w and f'{w["base"]} 발표, {len(w["hours"])}시간')
+    print("공연:", live["events"] and [(e["begin"], e["place"], e["title"][:20]) for e in live["events"][:6]])
     print("인구:", p and f'{p["level"]} {p["min"]}–{p["max"]}명, 예측 {len(p["forecast"])}개')
 
 
