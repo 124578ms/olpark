@@ -10,6 +10,7 @@ type Props = {
   nowHour: number | null
   withShow: boolean
   animKey: string
+  rainHours: number[]
 }
 
 const PAD_L = 4
@@ -30,7 +31,7 @@ function useWidth() {
   return [ref, w] as const
 }
 
-export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, animKey }: Props) {
+export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, animKey, rainHours }: Props) {
   const [wrapRef, W] = useWidth()
   const narrow = W < 480
   const H = narrow ? 220 : 260
@@ -114,6 +115,20 @@ export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, a
             </g>
           )
         })}
+
+        {/* 비·눈 예보 시각: 막대 위 물방울 */}
+        {hours
+          .filter((h) => rainHours.includes(h))
+          .map((h) => (
+            <path
+              key={`rain-${h}`}
+              transform={`translate(${x(h) + barW / 2} ${y(values[h]) - 10})`}
+              d="M0 -5 C 2 -2 3.5 0 3.5 1.5 A 3.5 3.5 0 0 1 -3.5 1.5 C -3.5 0 -2 -2 0 -5 Z"
+              fill="var(--color-ink-3)"
+              pointerEvents="none"
+              aria-hidden
+            />
+          ))}
 
         {/* 지금 */}
         {nowHour !== null && nowHour >= OPEN_FROM && nowHour <= OPEN_TO && (

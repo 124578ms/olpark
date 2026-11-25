@@ -3,7 +3,7 @@ import { DataMethod } from './components/DataMethod'
 import { Forecast } from './components/Forecast'
 import { Gates } from './components/Gates'
 import { ShowImpact } from './components/ShowImpact'
-import { eventsOn, loadLive, showImpact, type Live } from './lib/live'
+import { eventsOn, loadLive, rainHoursOn, showImpact, type Live } from './lib/live'
 import { addDays, forecast, gateLoads, loadSite, nowKST, peakWindow, recommendGate, type SiteData } from './lib/model'
 
 const NAV = [
@@ -34,7 +34,8 @@ export default function App() {
   const showOn = withShow ?? dayEvents.length > 0
   // 일정이 있으면 공연장 규모에 맞는 상승률, 직접 켠 경우는 2025년 전체 평균
   const uplift = showOn ? (impact?.uplift ?? site?.showEffect.meanUplift ?? 0) : 0
-  const values = useMemo(() => (site ? forecast(site, date, uplift) : []), [site, date, uplift])
+  const rainHours = useMemo(() => rainHoursOn(live, date), [live, date])
+  const values = useMemo(() => (site ? forecast(site, date, uplift, rainHours) : []), [site, date, uplift, rainHours])
 
   // 선택 시간이 없으면 가장 붐비는 시각을 보여 준다
   const activeHour = hour ?? (values.length ? peakWindow(values)[0] : 12)
@@ -76,6 +77,7 @@ export default function App() {
               onShow={setWithShow}
               events={dayEvents}
               impact={showOn ? impact : null}
+              rainHours={rainHours}
               eventDays={[0, 1, 2].map((i) => eventsOn(live, addDays(now, i)).length > 0)}
               values={values}
               hour={activeHour}

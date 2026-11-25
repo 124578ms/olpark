@@ -81,3 +81,12 @@ export function showImpact(site: SiteData, events: ParkEvent[]): { scale: Scale;
   const uplift = site.showEffect.byScale[scale]?.uplift ?? site.showEffect.meanUplift ?? 0
   return { scale, uplift }
 }
+
+/** 비·눈 예보(강수형태가 있는)가 있는 시각 */
+export function rainHoursOn(live: Live | null, d: Date): number[] {
+  if (!live?.weather) return []
+  const day = isoDate(d)
+  return Object.entries(live.weather.hours)
+    .filter(([k, w]) => k.startsWith(day) && w.pty > 0)
+    .map(([k]) => Number(k.slice(11, 13)))
+}

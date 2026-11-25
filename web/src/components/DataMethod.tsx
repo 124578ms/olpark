@@ -35,8 +35,14 @@ const DATASETS = [
   {
     org: '기상청',
     name: '단기예보 조회서비스',
-    role: '고른 시간의 기온·하늘·강수확률',
+    role: '고른 시간의 기온·하늘·강수확률, 비·눈 예보 시각',
     href: 'https://www.data.go.kr/data/15084084/openapi.do',
+  },
+  {
+    org: '기상청',
+    name: '지상(종관, ASOS) 시간자료 (서울)',
+    role: '2025년 비 온 시간대의 주차 감소율 계산',
+    href: 'https://www.data.go.kr/data/15057210/openapi.do',
   },
 ]
 
@@ -84,7 +90,7 @@ export function DataMethod({ site }: { site: SiteData }) {
             </li>
             <li>
               <span className="text-ink">3.</span> 공연이 있던 시간대가 기준표보다 얼마나 많았는지로 공연 영향을 구하고, 앞으로의 공연은
-              공연장 규모에 맞는 값을 16–20시에 더합니다
+              공연장 규모에 맞는 값을 16–20시에 더합니다. 비 온 시간대도 같은 방식으로 비교해 비 예보가 있는 시각을 낮춥니다
             </li>
             <li>
               <span className="text-ink">4.</span> 혼잡 등급은 낮 시간 주차 대수의 상위 50·25·10% 기준으로 나눕니다

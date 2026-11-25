@@ -33,6 +33,7 @@ type Props = {
   events: ParkEvent[]
   impact: { scale: Scale; uplift: number } | null
   eventDays: boolean[]
+  rainHours: number[]
 }
 
 const SCALE_TEXT: Record<Scale, string> = {
@@ -52,6 +53,19 @@ function rangeText(s: number, e: number) {
   return t.split(' ').join(NBSP).split('–').join(`${WJ}–${WJ}`)
 }
 
+/** 비 오는 시각들을 '오후 2시–5시, 오후 8시' 같은 구간 글로 */
+function rainRange(hours: number[]) {
+  const hs = [...hours].sort((a, b) => a - b)
+  const parts: string[] = []
+  for (let i = 0; i < hs.length; i++) {
+    let j = i
+    while (j + 1 < hs.length && hs[j + 1] === hs[j] + 1) j++
+    parts.push(i === j ? hourLabel(hs[i]) : `${hourLabel(hs[i])}–${hourLabel(hs[j])}`)
+    i = j
+  }
+  return parts.length > 3 ? `${parts.slice(0, 3).join(', ')} 등` : parts.join(', ')
+}
+
 export function Forecast(p: Props) {
   const [ps, pe] = peakWindow(p.values)
   const quiet = quietestHour(p.values, p.nowHour !== null ? p.nowHour + 1 : 9)
@@ -60,6 +74,7 @@ export function Forecast(p: Props) {
   const selLv = levelOf(p.site, sel)
   const uplift = p.site.showEffect.meanUplift
   const w = weatherAt(p.live, p.date, p.hour)
+  const rainFx = p.rainHours.length > 0 ? p.site.rainEffect?.[[0, 6].includes(p.date.getDay()) ? 'weekend' : 'weekday'] : undefined
 
   return (
     <section aria-labelledby="answer" className="pt-10 sm:pt-16">
@@ -135,6 +150,7 @@ export function Forecast(p: Props) {
             nowHour={p.dayOffset === 0 ? p.nowHour : null}
             withShow={p.withShow}
             animKey={`${p.dayOffset}-${p.withShow}`}
+            rainHours={p.rainHours}
           />
         </div>
 
@@ -164,6 +180,12 @@ export function Forecast(p: Props) {
             ))}
           </ul>
         </div>
+        {rainFx && rainFx.factor < 1 && (
+          <p className="mt-3 text-[13px] text-ink-3">
+            {rainRange(p.rainHours)}에 비나 눈 예보가 있어요. 2025년 {[0, 6].includes(p.date.getDay()) ? '주말' : '평일'} 비 온 시간은 마른
+            날보다 주차가 {Math.round((1 - rainFx.factor) * 100)}% 적어서 그만큼 낮췄어요
+          </p>
+        )}
         {p.withShow && p.impact && (
           <p className="mt-3 text-[13px] text-ink-3">
             2025년 {SCALE_TEXT[p.impact.scale]} 공연은 공연 시간대 주차가 같은 요일·시각보다 {formatPct(p.impact.uplift)} 많았어요(중앙값). 그

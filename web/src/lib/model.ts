@@ -28,6 +28,8 @@ export type SiteData = {
   baseline: number[][] // [요일 0=월][시]
   monthFactor: Record<string, number>
   gateShare: number[][] // [시][출입문]
+  /** 비 온 시간 / 마른 날 같은 시간 (주차 비율의 중앙값끼리) */
+  rainEffect: Record<'weekday' | 'weekend', { factor: number; rainHours: number; dryHours: number }> | null
   showEffect: {
     hours: number
     meanUplift: number | null
@@ -86,11 +88,19 @@ function weekdayIndex(d: Date): number {
   return (d.getDay() + 6) % 7
 }
 
-/** uplift: 공연 시간대(16–20시)에 더할 비율, 공연이 없으면 0 */
-export function forecast(site: SiteData, d: Date, uplift: number): number[] {
+export function rainFactor(site: SiteData, d: Date): number {
+  const fx = site.rainEffect?.[d.getDay() === 0 || d.getDay() === 6 ? 'weekend' : 'weekday']
+  return fx?.factor ?? 1
+}
+
+/** uplift: 공연 시간대(16–20시)에 더할 비율, 공연이 없으면 0. rainHours: 비나 눈 예보가 있는 시각 */
+export function forecast(site: SiteData, d: Date, uplift: number, rainHours: number[] = []): number[] {
   const base = site.baseline[weekdayIndex(d)]
   const mf = site.monthFactor[String(d.getMonth() + 1)] ?? 1
-  return base.map((v, h) => Math.round(v * mf * (SHOW_HOURS.includes(h) ? 1 + uplift : 1)))
+  const rf = rainFactor(site, d)
+  return base.map((v, h) =>
+    Math.round(v * mf * (SHOW_HOURS.includes(h) ? 1 + uplift : 1) * (rainHours.includes(h) ? rf : 1)),
+  )
 }
 
 export function levelOf(site: SiteData, v: number): Level {

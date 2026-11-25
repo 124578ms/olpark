@@ -131,6 +131,45 @@ def main():
             by_scale[scale_of(s["audience"])].append(statistics.mean(s["ratios"]) - 1)
     scale_uplift = {k: {"uplift": round(statistics.median(v), 3), "shows": len(v)} for k, v in sorted(by_scale.items())}
 
+    # 비 영향: 기상청 ASOS(서울) 시간 강수와 맞춰, 공연 없는 10–19시의 (재차대수 / 기준표×월보정)을
+    # 비 온 시간과 하루 종일 마른 날의 같은 시간대끼리 비교한다. 평일·주말을 나눔(평일 낮은 통근 차량이 많아 영향이 작음)
+    rain_effect = None
+    asos_path = os.path.join(ROOT, "data", "asos_2025.csv")
+    if os.path.exists(asos_path):
+        rain = {}
+        for w in csv.DictReader(open(asos_path, encoding="utf-8")):
+            rain[w["datetime"][:13]] = float(w["강수량"] or 0)
+        day_rain = defaultdict(float)
+        for k, v in rain.items():
+            if 9 <= int(k[11:13]) <= 18:
+                day_rain[k[:10]] += v
+        groups = defaultdict(list)
+        for r in used:
+            h = r["dt"].hour
+            if r["공연명"] or not (10 <= h <= 19):
+                continue
+            b = baseline[r["dt"].weekday()][h] * month_factor.get(r["dt"].month, 1.0)
+            if not b:
+                continue
+            k = r["dt"].strftime("%Y-%m-%d %H")
+            d = k[:10]
+            if rain.get(k, 0) > 0:
+                kind = "rain"
+            elif day_rain[d] == 0:
+                kind = "dry"
+            else:
+                continue
+            groups[("weekend" if r["dt"].weekday() >= 5 else "weekday", kind)].append(r["재차대수"] / b)
+        rain_effect = {}
+        for g in ("weekday", "weekend"):
+            wet, dry = groups[(g, "rain")], groups[(g, "dry")]
+            if len(wet) >= 10 and dry:
+                rain_effect[g] = {
+                    "factor": round(statistics.median(wet) / statistics.median(dry), 3),
+                    "rainHours": len(wet),
+                    "dryHours": len(dry),
+                }
+
     # 일별 요약 (연간 달력)
     daily = defaultdict(lambda: {"entries": 0, "peak": 0, "show": ""})
     for r in used:
@@ -156,6 +195,7 @@ def main():
         "baseline": baseline,
         "monthFactor": month_factor,
         "gateShare": gate_share,
+        "rainEffect": rain_effect,
         "showEffect": {
             "hours": len(all_ratios),
             "byScale": scale_uplift,  # small < 3,000명 ≤ mid < 10,000명 ≤ large
@@ -174,6 +214,7 @@ def main():
     print("월 보정:", month_factor, "| 일수:", dict(sorted(month_n.items())))
     print("공연 시간 평균 상승률:", site["showEffect"]["meanUplift"], "| 공연 수:", len(show_list))
     print("규모별 공연 영향(중앙값):", scale_uplift)
+    print("비 영향:", rain_effect)
     print("토요일 기준표 10–20시:", baseline[5][10:21])
     for s in show_list[:5]:
         print("  ", s["name"][:30], s["dates"][:2], s["audience"], s["uplift"])
