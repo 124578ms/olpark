@@ -170,6 +170,27 @@ def main():
                     "dryHours": len(dry),
                 }
 
+    # 공휴일 영향: 한국천문연구원 특일정보(data/holidays_2025.json)의 공휴일마다, 공연 없는 10–19시
+    # 재차대수 합 / (같은 요일 기준표×월보정) 합을 구하고 명절(설날·추석)과 그 밖의 공휴일로 나눠 중앙값을 씀
+    holiday_effect = None
+    hol_path = os.path.join(ROOT, "data", "holidays_2025.json")
+    if os.path.exists(hol_path):
+        hol = {datetime.strptime(k, "%Y%m%d").date(): v for k, v in json.load(open(hol_path, encoding="utf-8")).items()}
+        sums = defaultdict(lambda: [0.0, 0.0])
+        for r in used:
+            d, h = r["dt"].date(), r["dt"].hour
+            if d not in hol or r["공연명"] or not (10 <= h <= 19):
+                continue
+            sums[d][0] += r["재차대수"]
+            sums[d][1] += baseline[r["dt"].weekday()][h] * month_factor.get(d.month, 1.0)
+        kinds = defaultdict(list)
+        for d, (a, b) in sums.items():
+            if b:
+                kinds["major" if hol[d] in ("설날", "추석") else "other"].append(a / b)
+        holiday_effect = {
+            k: {"factor": round(statistics.median(v), 3), "days": len(v)} for k, v in sorted(kinds.items()) if len(v) >= 3
+        }
+
     # 일별 요약 (연간 달력)
     daily = defaultdict(lambda: {"entries": 0, "peak": 0, "show": ""})
     for r in used:
@@ -196,6 +217,7 @@ def main():
         "monthFactor": month_factor,
         "gateShare": gate_share,
         "rainEffect": rain_effect,
+        "holidayEffect": holiday_effect,
         "showEffect": {
             "hours": len(all_ratios),
             "byScale": scale_uplift,  # small < 3,000명 ≤ mid < 10,000명 ≤ large
@@ -212,6 +234,7 @@ def main():
     print("사용 일수:", len(good_days), site["source"]["from"], "~", site["source"]["to"])
     print("등급 기준(50/75/90%):", thresholds)
     print("월 보정:", month_factor, "| 일수:", dict(sorted(month_n.items())))
+    print("공휴일 영향:", holiday_effect)
     print("공연 시간 평균 상승률:", site["showEffect"]["meanUplift"], "| 공연 수:", len(show_list))
     print("규모별 공연 영향(중앙값):", scale_uplift)
     print("비 영향:", rain_effect)

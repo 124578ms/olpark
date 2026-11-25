@@ -7,6 +7,7 @@ export type ParkEvent = { title: string; place: string; begin: string; end: stri
 export type Live = {
   updatedAt: string
   events?: ParkEvent[] | null
+  holidays?: { date: string; name: string }[] | null
   parking: { sum: number; gates: string[] } | null
   weather: { base: string; hours: Record<string, WeatherHour> } | null
   people: {
@@ -60,6 +61,12 @@ export function isoDate(d: Date) {
 }
 
 /** 그날 열리는 공연 (기간에 걸친 공연 포함) */
+/** 그날이 공휴일이면 이름 (한국천문연구원 특일정보) */
+export function holidayOn(live: Live | null, d: Date): string | null {
+  const day = isoDate(d)
+  return live?.holidays?.find((h) => h.date === day)?.name ?? null
+}
+
 export function eventsOn(live: Live | null, d: Date): ParkEvent[] {
   const day = isoDate(d)
   return (live?.events ?? []).filter((e) => e.begin <= day && day <= e.end)

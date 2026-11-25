@@ -34,6 +34,8 @@ type Props = {
   impact: { scale: Scale; uplift: number } | null
   eventDays: boolean[]
   rainHours: number[]
+  holiday: string | null
+  holidayFx: { kind: 'major' | 'other'; factor: number; days: number } | null
 }
 
 const SCALE_TEXT: Record<Scale, string> = {
@@ -180,6 +182,12 @@ export function Forecast(p: Props) {
             ))}
           </ul>
         </div>
+        {p.holiday && p.holidayFx && (
+          <p className="mt-3 text-[13px] text-ink-3">
+            {p.holiday}이에요. 2025년 {p.holidayFx.kind === 'major' ? '설날·추석' : '공휴일'}은 같은 요일 평소보다 주차가{' '}
+            {Math.round((1 - p.holidayFx.factor) * 100)}% 적어서(공휴일 {p.holidayFx.days}일 중앙값) 하루 전체를 그만큼 낮췄어요
+          </p>
+        )}
         {rainFx && rainFx.factor < 1 && (
           <p className="mt-3 text-[13px] text-ink-3">
             {rainRange(p.rainHours)}에 비나 눈 예보가 있어요. 2025년 {[0, 6].includes(p.date.getDay()) ? '주말' : '평일'} 비 온 시간은 마른

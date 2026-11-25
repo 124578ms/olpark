@@ -4,6 +4,7 @@
 - 기상청 단기예보(송파구 방이동 격자 62,126): 시간별 기온·강수확률·하늘·강수형태
 - 서울시 실시간 도시데이터(올림픽공원 POI127): 지금 인구 혼잡도와 12시간 예측
 - 한국체육산업개발 올림픽공원 공연/행사 일정(홈페이지 일정안내가 쓰는 월별 목록): 이번 달·다음 달 공연
+- 한국천문연구원 특일정보(공휴일): 이번 달·다음 달 공휴일 (기상청과 같은 공공데이터포털 키)
 
 키는 환경변수(KMA_KEY, SEOUL_KEY)에서, 없으면 .env에서 읽는다.
 실시간 주차현황은 기관이 공개한 공용 키 하나만 받는다(문화공공데이터광장에서 발급되는 키는
@@ -169,6 +170,29 @@ def events(now):
     return sorted(out, key=lambda e: (e["begin"], e["place"]))
 
 
+def holidays(key, now):
+    if not key:
+        return None
+    out = []
+    first = now.replace(day=1)
+    for m in (first, (first + timedelta(days=32)).replace(day=1)):
+        q = urllib.parse.urlencode(
+            {"serviceKey": key, "solYear": m.year, "solMonth": "%02d" % m.month, "_type": "json", "numOfRows": 50}
+        )
+        try:
+            data = get_json("https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?" + q)
+            items = data["response"]["body"].get("items") or {}
+            item = items.get("item", []) if isinstance(items, dict) else []
+            for x in [item] if isinstance(item, dict) else item:  # 한 건이면 목록이 아니라 객체로 옴
+                if x.get("isHoliday") == "Y":
+                    d = str(x["locdate"])
+                    out.append({"date": f"{d[:4]}-{d[4:6]}-{d[6:]}", "name": x["dateName"]})
+        except Exception as e:  # noqa: BLE001
+            print("공휴일 실패:", m.strftime("%Y-%m"), type(e).__name__, str(e)[:80])
+            return None
+    return out
+
+
 def main():
     now = datetime.now(KST)
     keys = env_keys()
@@ -178,6 +202,7 @@ def main():
         "weather": kma(keys["kma"], now),
         "people": seoul(keys["seoul"]),
         "events": events(now),
+        "holidays": holidays(keys["kma"], now),
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump(live, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
@@ -187,6 +212,7 @@ def main():
     print("주차:", live["parking"])
     print("날씨:", w and f'{w["base"]} 발표, {len(w["hours"])}시간')
     print("공연:", live["events"] and [(e["begin"], e["place"], e["title"][:20]) for e in live["events"][:6]])
+    print("공휴일:", live["holidays"])
     print("인구:", p and f'{p["level"]} {p["min"]}–{p["max"]}명, 예측 {len(p["forecast"])}개')
 
 

@@ -1,7 +1,8 @@
 // site.json(파이썬에서 생성)을 읽어 날짜별 시간대 예보를 계산한다.
-// 예상 재차대수 = 기준표[요일][시] × 월 보정 × (공연 가정 시 공연 영향)
+// 예상 재차대수 = 기준표[요일][시] × 월 보정 × 공연 영향 × 비 영향 × 공휴일 영향
 
 export type Scale = 'small' | 'mid' | 'large'
+export type HolidayKind = 'major' | 'other'
 
 export type Show = {
   with: string[]
@@ -30,6 +31,8 @@ export type SiteData = {
   gateShare: number[][] // [시][출입문]
   /** 비 온 시간 / 마른 날 같은 시간 (주차 비율의 중앙값끼리) */
   rainEffect: Record<'weekday' | 'weekend', { factor: number; rainHours: number; dryHours: number }> | null
+  /** 공휴일 공연 없는 10–19시 주차 / 같은 요일 기준 (명절=설날·추석, other=그 밖 공휴일), 2025년 중앙값 */
+  holidayEffect?: Partial<Record<HolidayKind, { factor: number; days: number }>> | null
   showEffect: {
     hours: number
     meanUplift: number | null
@@ -93,13 +96,21 @@ export function rainFactor(site: SiteData, d: Date): number {
   return fx?.factor ?? 1
 }
 
-/** uplift: 공연 시간대(16–20시)에 더할 비율, 공연이 없으면 0. rainHours: 비나 눈 예보가 있는 시각 */
-export function forecast(site: SiteData, d: Date, uplift: number, rainHours: number[] = []): number[] {
+/** 공휴일 이름으로 영향 계수를 고른다. 설날·추석은 명절, 그 밖은 일반 공휴일 */
+export function holidayEffectOf(site: SiteData, name: string | null): { kind: HolidayKind; factor: number; days: number } | null {
+  if (!name) return null
+  const kind: HolidayKind = name === '설날' || name === '추석' ? 'major' : 'other'
+  const fx = site.holidayEffect?.[kind]
+  return fx ? { kind, ...fx } : null
+}
+
+/** uplift: 공연 시간대(16–20시)에 더할 비율, 공연이 없으면 0. rainHours: 비나 눈 예보가 있는 시각. holiday: 공휴일 계수(평일·주말 모두 하루 전체에 곱함) */
+export function forecast(site: SiteData, d: Date, uplift: number, rainHours: number[] = [], holiday = 1): number[] {
   const base = site.baseline[weekdayIndex(d)]
   const mf = site.monthFactor[String(d.getMonth() + 1)] ?? 1
   const rf = rainFactor(site, d)
   return base.map((v, h) =>
-    Math.round(v * mf * (SHOW_HOURS.includes(h) ? 1 + uplift : 1) * (rainHours.includes(h) ? rf : 1)),
+    Math.round(v * mf * holiday * (SHOW_HOURS.includes(h) ? 1 + uplift : 1) * (rainHours.includes(h) ? rf : 1)),
   )
 }
 

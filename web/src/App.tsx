@@ -3,8 +3,8 @@ import { DataMethod } from './components/DataMethod'
 import { Forecast } from './components/Forecast'
 import { Gates } from './components/Gates'
 import { ShowImpact } from './components/ShowImpact'
-import { eventsOn, loadLive, rainHoursOn, showImpact, type Live } from './lib/live'
-import { addDays, forecast, gateLoads, loadSite, nowKST, peakWindow, recommendGate, type SiteData } from './lib/model'
+import { eventsOn, holidayOn, loadLive, rainHoursOn, showImpact, type Live } from './lib/live'
+import { addDays, forecast, gateLoads, holidayEffectOf, loadSite, nowKST, peakWindow, recommendGate, type SiteData } from './lib/model'
 
 const NAV = [
   { href: '#answer', label: '예보' },
@@ -35,7 +35,13 @@ export default function App() {
   // 일정이 있으면 공연장 규모에 맞는 상승률, 직접 켠 경우는 2025년 전체 평균
   const uplift = showOn ? (impact?.uplift ?? site?.showEffect.meanUplift ?? 0) : 0
   const rainHours = useMemo(() => rainHoursOn(live, date), [live, date])
-  const values = useMemo(() => (site ? forecast(site, date, uplift, rainHours) : []), [site, date, uplift, rainHours])
+  const holiday = useMemo(() => holidayOn(live, date), [live, date])
+  const holidayFx = site ? holidayEffectOf(site, holiday) : null
+  const hf = holidayFx?.factor ?? 1
+  const values = useMemo(
+    () => (site ? forecast(site, date, uplift, rainHours, hf) : []),
+    [site, date, uplift, rainHours, hf],
+  )
 
   // 선택 시간이 없으면 가장 붐비는 시각을 보여 준다
   const activeHour = hour ?? (values.length ? peakWindow(values)[0] : 12)
@@ -78,6 +84,8 @@ export default function App() {
               events={dayEvents}
               impact={showOn ? impact : null}
               rainHours={rainHours}
+              holiday={holiday}
+              holidayFx={holidayFx}
               eventDays={[0, 1, 2].map((i) => eventsOn(live, addDays(now, i)).length > 0)}
               values={values}
               hour={activeHour}
