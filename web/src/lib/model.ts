@@ -32,6 +32,8 @@ export type SiteData = {
   /** 비 온 시간 / 마른 날 같은 시간 (주차 비율의 중앙값끼리) */
   rainEffect: Record<'weekday' | 'weekend', { factor: number; rainHours: number; dryHours: number }> | null
   /** 공휴일 공연 없는 10–19시 주차 / 같은 요일 기준 (명절=설날·추석, other=그 밖 공휴일), 2025년 중앙값 */
+  /** 공연 시작 시각 기준 n시간 전후의 주차 / 같은 요일 기준 (2025년, 규모·평일/주말별 중앙값) */
+  showProfile?: Partial<Record<Scale, Partial<Record<'weekday' | 'weekend', { days: number; factor: Record<string, number> }>>>> | null
   holidayEffect?: Partial<Record<HolidayKind, { factor: number; days: number }>> | null
   showEffect: {
     hours: number
@@ -106,13 +108,47 @@ export function holidayEffectOf(site: SiteData, name: string | null): { kind: Ho
   return fx ? { kind, ...fx } : null
 }
 
-/** uplift: 공연 시간대(16–20시)에 더할 비율, 공연이 없으면 0. rainHours: 비나 눈 예보가 있는 시각. holiday: 공휴일 계수(평일·주말 모두 하루 전체에 곱함) */
-export function forecast(site: SiteData, d: Date, uplift: number, rainHours: number[] = [], holiday = 1): number[] {
+export type ShowPlan = {
+  /** 시각별 공연 계수(0–23시), 공연 영향이 없으면 1 */
+  factors: number[]
+  /** 표시할 공연 구간 [시작, 끝] 시 */
+  range: [number, number]
+  /** 실제 시작 시각(시) — 일정에서 읽었을 때만 */
+  start: number | null
+  scale: Scale
+  weekend: boolean
+  days: number
+  /** 일정에서 읽은 시각인지, 평소 공연 시간 가정인지 */
+  source: 'schedule' | 'typical' | 'fixed'
+}
+
+/** 시작 시각 기준 프로필로 시각별 계수를 만든다. 프로필이 없으면 null */
+export function showPlanFor(site: SiteData, d: Date, scale: Scale, start: number, source: ShowPlan['source']): ShowPlan | null {
+  const weekend = d.getDay() === 0 || d.getDay() === 6
+  const p = site.showProfile?.[scale]?.[weekend ? 'weekend' : 'weekday'] ?? (scale !== 'small' ? site.showProfile?.[scale]?.weekday : undefined)
+  if (!p) return null
+  const factors = Array(24).fill(1)
+  for (const [off, f] of Object.entries(p.factor)) {
+    const h = start + Number(off)
+    if (h >= 0 && h < 24) factors[h] = f
+  }
+  return { factors, range: [start, Math.min(23, start + 3)], start: source === 'schedule' ? start : null, scale, weekend, days: p.days, source }
+}
+
+/** 시작 시각을 모를 때: 16–20시에 규모별 상승률을 더한다(예전 방식) */
+export function fixedShowPlan(site: SiteData, scale: Scale | null): ShowPlan {
+  const up = (scale && site.showEffect.byScale[scale]?.uplift) ?? site.showEffect.meanUplift ?? 0
+  const factors = Array(24).fill(1).map((v, h) => (SHOW_HOURS.includes(h) ? v + up : v))
+  return { factors, range: [SHOW_HOURS[0], SHOW_HOURS[SHOW_HOURS.length - 1]], start: null, scale: scale ?? 'large', weekend: false, days: 0, source: 'fixed' }
+}
+
+/** show: 공연 계수(없으면 null). rainHours: 비나 눈 예보가 있는 시각. holiday: 공휴일 계수(하루 전체에 곱함) */
+export function forecast(site: SiteData, d: Date, show: ShowPlan | null, rainHours: number[] = [], holiday = 1): number[] {
   const base = site.baseline[weekdayIndex(d)]
   const mf = site.monthFactor[String(d.getMonth() + 1)] ?? 1
   const rf = rainFactor(site, d)
   return base.map((v, h) =>
-    Math.round(v * mf * holiday * (SHOW_HOURS.includes(h) ? 1 + uplift : 1) * (rainHours.includes(h) ? rf : 1)),
+    Math.round(v * mf * holiday * (show ? show.factors[h] : 1) * (rainHours.includes(h) ? rf : 1)),
   )
 }
 

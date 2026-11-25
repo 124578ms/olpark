@@ -191,6 +191,53 @@ def main():
             k: {"factor": round(statistics.median(v), 3), "days": len(v)} for k, v in sorted(kinds.items()) if len(v) >= 3
         }
 
+    # 공연 시작 시각 기준 영향: 2025년 공연 일정(data/events_2025.json, 홈페이지 월별 목록)의 시작 시각을 읽어,
+    # 공연장 규모·평일/주말별로 '시작 n시간 전후' 재차대수 / (같은 요일 기준표×월보정)의 중앙값을 구한다.
+    # 15시 이후 시작하는 공연만, 그날 가장 큰 공연장의 가장 이른 시작을 기준으로 함
+    show_profile = None
+    ev_path = os.path.join(ROOT, "data", "events_2025.json")
+    if os.path.exists(ev_path):
+        sys.path.insert(0, os.path.dirname(__file__))
+        from show_times import parse_starts
+
+        def venue_scale(place):
+            if "KSPO" in place or "체조" in place:
+                return "large"
+            if any(k in place for k in ("핸드볼", "라이브 아레나", "올림픽홀")):
+                return "mid"
+            return "small"
+
+        order = {"small": 0, "mid": 1, "large": 2}
+        starts = defaultdict(list)
+        for e in json.load(open(ev_path, encoding="utf-8")):
+            for d, ts in parse_starts(e["time"], e["begin"], e["end"]).items():
+                for t in ts:
+                    if int(t[:2]) >= 15:
+                        starts[datetime.strptime(d, "%Y-%m-%d").date()].append((venue_scale(e["place"]), int(t[:2])))
+        occ = defaultdict(dict)
+        for r in used:
+            occ[r["dt"].date()][r["dt"].hour] = r["재차대수"]
+        ratios, days_n = defaultdict(list), defaultdict(int)
+        for d, lst in starts.items():
+            if d not in good_days or len(occ[d]) < 24:
+                continue
+            sc = max(lst, key=lambda x: order[x[0]])[0]
+            s0 = min(h for k, h in lst if k == sc)
+            wk = "weekend" if d.weekday() >= 5 else "weekday"
+            days_n[(sc, wk)] += 1
+            for off in range(-3, 6):
+                h = s0 + off
+                if h < 24:
+                    b = baseline[d.weekday()][h] * month_factor.get(d.month, 1.0)
+                    if b > 100:
+                        ratios[(sc, wk, off)].append(occ[d][h] / b)
+        show_profile = {}
+        for (sc, wk), n in sorted(days_n.items()):
+            if n < 8:  # 표본이 적으면 쓰지 않음
+                continue
+            f = {str(o): round(statistics.median(ratios[(sc, wk, o)]), 3) for o in range(-3, 6) if len(ratios[(sc, wk, o)]) >= 8}
+            show_profile.setdefault(sc, {})[wk] = {"days": n, "factor": f}
+
     # 일별 요약 (연간 달력)
     daily = defaultdict(lambda: {"entries": 0, "peak": 0, "show": ""})
     for r in used:
@@ -218,6 +265,7 @@ def main():
         "gateShare": gate_share,
         "rainEffect": rain_effect,
         "holidayEffect": holiday_effect,
+        "showProfile": show_profile,
         "showEffect": {
             "hours": len(all_ratios),
             "byScale": scale_uplift,  # small < 3,000명 ≤ mid < 10,000명 ≤ large
@@ -235,6 +283,7 @@ def main():
     print("등급 기준(50/75/90%):", thresholds)
     print("월 보정:", month_factor, "| 일수:", dict(sorted(month_n.items())))
     print("공휴일 영향:", holiday_effect)
+    print("공연 시작 기준 영향:", json.dumps(show_profile, ensure_ascii=False))
     print("공연 시간 평균 상승률:", site["showEffect"]["meanUplift"], "| 공연 수:", len(show_list))
     print("규모별 공연 영향(중앙값):", scale_uplift)
     print("비 영향:", rain_effect)

@@ -23,7 +23,7 @@ const DATASETS = [
   {
     org: '한국체육산업개발',
     name: '올림픽공원 공연/행사 일정안내',
-    role: '오늘부터 사흘 안의 공연과 공연장 규모',
+    role: '2주 안의 공연, 공연장 규모와 날짜별 시작 시각',
     href: 'https://www.ksponco.or.kr/olympicpark/menu.es?mid=a20301010000',
   },
   {
@@ -101,8 +101,8 @@ export function DataMethod({ site }: { site: SiteData }) {
               <span className="text-ink">2.</span> 공연이 없던 날만 모아 요일·시각별 중앙값으로 기준표를 만듭니다
             </li>
             <li>
-              <span className="text-ink">3.</span> 공연이 있던 시간대가 기준표보다 얼마나 많았는지로 공연 영향을 구하고, 앞으로의 공연은
-              공연장 규모에 맞는 값을 16–20시에 더합니다. 비 온 시간대와 공휴일도 같은 방식으로 비교해 비 예보가 있는 시각과 공휴일을 낮춥니다
+              <span className="text-ink">3.</span> 2025년 공연 일정의 시작 시각을 읽어, 공연장 규모·평일/주말별로 시작 몇 시간 전후에 주차가
+              기준표보다 얼마나 달랐는지 구합니다. 앞으로의 공연도 일정의 시작 시각에 맞춰 그 비율을 곱합니다. 비 온 시간대와 공휴일도 같은 방식으로 비교해 비 예보가 있는 시각과 공휴일을 낮춥니다
             </li>
             <li>
               <span className="text-ink">4.</span> 혼잡 등급은 낮 시간 주차 대수의 상위 50·25·10% 기준으로 나눕니다

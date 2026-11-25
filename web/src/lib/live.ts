@@ -1,9 +1,18 @@
 // 실시간·예보 데이터 (scripts/fetch_live.py가 30분마다 만든 live.json)
-import type { Scale, SiteData } from './model'
+import { fixedShowPlan, showPlanFor, type Scale, type ShowPlan, type SiteData } from './model'
 
 export type WeatherHour = { tmp: number | null; pop: number | null; sky: number; pty: number }
 export type MidDay = { popAm: number | null; popPm: number | null; wfAm: string; wfPm: string; taMin: number | null; taMax: number | null }
-export type ParkEvent = { title: string; place: string; begin: string; end: string; time: string; url: string }
+export type ParkEvent = {
+  title: string
+  place: string
+  begin: string
+  end: string
+  time: string
+  url: string
+  /** 날짜별 시작 시각 'HH:MM' (시간 글에서 읽음) */
+  starts?: Record<string, string[]>
+}
 
 export type Live = {
   updatedAt: string
@@ -157,4 +166,28 @@ export function dayWeather(live: Live | null, d: Date): DayWeather | null {
   const pops = [m.popAm, m.popPm].filter((t): t is number => t !== null)
   const rain = RAINY.test(m.wfAm) || RAINY.test(m.wfPm)
   return { pop: pops.length ? Math.max(...pops) : null, rain, tmin: m.taMin, tmax: m.taMax, sky: rain ? '비·눈' : /흐림/.test(m.wfPm) ? '흐림' : '맑음' }
+}
+
+/** 그날 공연으로 예보에 쓸 공연 계획: 가장 큰 공연장의 실제 시작 시각 → 2025년 시작 시각 기준 프로필 */
+export function dayShowPlan(site: SiteData, events: ParkEvent[], d: Date): (ShowPlan & { event: ParkEvent | null }) | null {
+  if (events.length === 0) return null
+  const day = isoDate(d)
+  const rank = (e: ParkEvent) => ORDER.indexOf(venueScale(e.place))
+  const timed = events
+    .map((e) => ({ e, ts: (e.starts?.[day] ?? []).map((t) => Number(t.slice(0, 2))).filter((h) => h >= 15) }))
+    .filter((x) => x.ts.length > 0)
+    .sort((a, b) => rank(b.e) - rank(a.e) || Math.min(...a.ts) - Math.min(...b.ts))
+  if (timed.length) {
+    const { e, ts } = timed[0]
+    const plan = showPlanFor(site, d, venueScale(e.place), Math.min(...ts), 'schedule')
+    if (plan) return { ...plan, event: e }
+  }
+  const top = [...events].sort((a, b) => rank(b) - rank(a))[0]
+  return { ...fixedShowPlan(site, venueScale(top.place)), event: top }
+}
+
+/** 일정 없이 '저녁 공연이 있는 날로 보기'를 켰을 때: 1만 명 이상 공연이 평소 시각(평일 19시, 주말 17시)에 시작한다고 가정 */
+export function typicalShowPlan(site: SiteData, d: Date): ShowPlan {
+  const weekend = d.getDay() === 0 || d.getDay() === 6
+  return showPlanFor(site, d, 'large', weekend ? 17 : 19, 'typical') ?? fixedShowPlan(site, null)
 }

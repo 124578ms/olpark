@@ -3,7 +3,7 @@ import { DataMethod } from './components/DataMethod'
 import { Forecast } from './components/Forecast'
 import { Gates } from './components/Gates'
 import { ShowImpact } from './components/ShowImpact'
-import { dayWeather, eventsOn, holidayOn, loadLive, popsOn, rainHoursOn, showImpact, type Live } from './lib/live'
+import { dayShowPlan, dayWeather, eventsOn, holidayOn, loadLive, popsOn, rainHoursOn, typicalShowPlan, type Live } from './lib/live'
 import { RANGE_DAYS, addDays, forecast, gateLoads, holidayEffectOf, loadSite, nowKST, peakWindow, recommendGate, type SiteData } from './lib/model'
 
 const NAV = [
@@ -30,10 +30,12 @@ export default function App() {
   const now = useMemo(() => nowKST(), [])
   const date = useMemo(() => addDays(now, dayOffset), [now, dayOffset])
   const dayEvents = useMemo(() => eventsOn(live, date), [live, date])
-  const impact = useMemo(() => (site ? showImpact(site, dayEvents) : null), [site, dayEvents])
   const showOn = withShow ?? dayEvents.length > 0
-  // 일정이 있으면 공연장 규모에 맞는 상승률, 직접 켠 경우는 2025년 전체 평균
-  const uplift = showOn ? (impact?.uplift ?? site?.showEffect.meanUplift ?? 0) : 0
+  // 일정이 있으면 가장 큰 공연장의 실제 시작 시각 기준, 직접 켠 경우는 평소 공연 시각 가정
+  const showPlan = useMemo(() => {
+    if (!site || !showOn) return null
+    return dayShowPlan(site, dayEvents, date) ?? { ...typicalShowPlan(site, date), event: null }
+  }, [site, showOn, dayEvents, date])
   const rain = useMemo(() => rainHoursOn(live, date), [live, date])
   const rainHours = rain.hours
   const pops = useMemo(() => popsOn(live, date), [live, date])
@@ -50,8 +52,8 @@ export default function App() {
   const holidayFx = site ? holidayEffectOf(site, holiday) : null
   const hf = holidayFx?.factor ?? 1
   const values = useMemo(
-    () => (site ? forecast(site, date, uplift, rainHours, hf) : []),
-    [site, date, uplift, rainHours, hf],
+    () => (site ? forecast(site, date, showPlan, rainHours, hf) : []),
+    [site, date, showPlan, rainHours, hf],
   )
 
   // 선택 시간이 없으면 가장 붐비는 시각을 보여 준다
@@ -93,7 +95,7 @@ export default function App() {
               withShow={showOn}
               onShow={setWithShow}
               events={dayEvents}
-              impact={showOn ? impact : null}
+              showPlan={showPlan}
               rainHours={rainHours}
               rainCoarse={rain.coarse}
               pops={pops}

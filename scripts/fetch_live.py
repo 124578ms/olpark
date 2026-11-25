@@ -16,6 +16,9 @@
 import json, os, re, sys, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 
+sys.path.insert(0, os.path.dirname(__file__))
+from show_times import parse_starts  # noqa: E402
+
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 OUT = os.path.join(ROOT, "web", "public", "data", "live.json")
@@ -166,6 +169,8 @@ def events(now):
                     "end": it.get("endDt") or it["beginDt"],
                     "time": " ".join((it.get("tm") or "").split()),
                     "url": EVENT_VIEW + str(seq),
+                    # 시간 글에서 읽은 날짜별 시작 시각 (못 읽으면 빈 값)
+                    "starts": parse_starts(it.get("tm") or "", it["beginDt"], it.get("endDt") or it["beginDt"]),
                 }
             )
     return sorted(out, key=lambda e: (e["begin"], e["place"]))
@@ -177,39 +182,45 @@ def mid(key, now):
         return None
     t = now - timedelta(minutes=30)
     if t.hour >= 18:
-        base = t.replace(hour=18)
+        latest = t.replace(hour=18)
     elif t.hour >= 6:
-        base = t.replace(hour=6)
+        latest = t.replace(hour=6)
     else:
-        base = (t - timedelta(days=1)).replace(hour=18)
-    tm = base.strftime("%Y%m%d%H") + "00"
-
-    def call(op, reg):
-        q = urllib.parse.urlencode({"serviceKey": key, "regId": reg, "tmFc": tm, "dataType": "JSON", "numOfRows": 10, "pageNo": 1})
-        items = get_json("https://apis.data.go.kr/1360000/MidFcstInfoService/" + op + "?" + q)["response"]["body"]["items"]["item"]
-        return items[0] if isinstance(items, list) else items
-
-    try:
-        land = call("getMidLandFcst", "11B00000")  # 서울·인천·경기 육상
-        ta = call("getMidTa", "11B10101")  # 서울 기온
-    except Exception as e:  # noqa: BLE001
-        print("중기예보 실패:", type(e).__name__, str(e)[:80])
-        return None
+        latest = (t - timedelta(days=1)).replace(hour=18)
+    # 18시 발표는 5일 뒤부터라, 같은 날 06시 발표(4일 뒤부터)를 먼저 받고 최근 발표로 덮어씀
+    bases = [latest.replace(hour=6), latest] if latest.hour == 18 else [latest]
     num = lambda v: None if v in (None, "") else int(float(v))
-    days = {}
-    for n in range(3, 11):
-        if f"wf{n}Am" not in land and f"wf{n}" not in land:
+    days, used_tm = {}, None
+    for base in bases:
+        tm = base.strftime("%Y%m%d%H") + "00"
+
+        def call(op, reg):
+            q = urllib.parse.urlencode({"serviceKey": key, "regId": reg, "tmFc": tm, "dataType": "JSON", "numOfRows": 10, "pageNo": 1})
+            items = get_json("https://apis.data.go.kr/1360000/MidFcstInfoService/" + op + "?" + q)["response"]["body"]["items"]["item"]
+            return items[0] if isinstance(items, list) else items
+
+        try:
+            land = call("getMidLandFcst", "11B00000")  # 서울·인천·경기 육상
+            ta = call("getMidTa", "11B10101")  # 서울 기온
+        except Exception as e:  # noqa: BLE001
+            print("중기예보 실패:", tm, type(e).__name__, str(e)[:80])
             continue
-        d = (base + timedelta(days=n)).strftime("%Y-%m-%d")
-        days[d] = {
-            "popAm": num(land.get(f"rnSt{n}Am", land.get(f"rnSt{n}"))),
-            "popPm": num(land.get(f"rnSt{n}Pm", land.get(f"rnSt{n}"))),
-            "wfAm": land.get(f"wf{n}Am", land.get(f"wf{n}", "")),
-            "wfPm": land.get(f"wf{n}Pm", land.get(f"wf{n}", "")),
-            "taMin": num(ta.get(f"taMin{n}")),
-            "taMax": num(ta.get(f"taMax{n}")),
-        }
-    return {"tmFc": tm, "days": days}
+        used_tm = tm
+        for n in range(3, 11):
+            if f"wf{n}Am" not in land and f"wf{n}" not in land:
+                continue
+            d = (base + timedelta(days=n)).strftime("%Y-%m-%d")
+            days[d] = {
+                "popAm": num(land.get(f"rnSt{n}Am", land.get(f"rnSt{n}"))),
+                "popPm": num(land.get(f"rnSt{n}Pm", land.get(f"rnSt{n}"))),
+                "wfAm": land.get(f"wf{n}Am", land.get(f"wf{n}", "")),
+                "wfPm": land.get(f"wf{n}Pm", land.get(f"wf{n}", "")),
+                "taMin": num(ta.get(f"taMin{n}")),
+                "taMax": num(ta.get(f"taMax{n}")),
+            }
+    if not days:
+        return None
+    return {"tmFc": used_tm, "days": dict(sorted(days.items()))}
 
 
 def holidays(key, now):

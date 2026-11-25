@@ -10,6 +10,7 @@ import {
   quietestHour,
   WEEKDAY,
   type GateLoad,
+  type ShowPlan,
   type SiteData,
 } from '../lib/model'
 import { weatherAt, weatherText, type DayWeather, type Live, type ParkEvent } from '../lib/live'
@@ -32,7 +33,7 @@ type Props = {
   gate: GateLoad
   live: Live | null
   events: ParkEvent[]
-  impact: { scale: Scale; uplift: number } | null
+  showPlan: (ShowPlan & { event: ParkEvent | null }) | null
   rainHours: number[]
   rainCoarse: boolean
   pops: (number | null)[]
@@ -77,7 +78,6 @@ export function Forecast(p: Props) {
   const subject = p.dayOffset < DAYS.length ? DAYS[p.dayOffset] : `${p.date.getMonth() + 1}월 ${p.date.getDate()}일`
   const sel = p.values[p.hour]
   const selLv = levelOf(p.site, sel)
-  const uplift = p.site.showEffect.meanUplift
   const w = weatherAt(p.live, p.date, p.hour)
   const rainFx = p.rainHours.length > 0 ? p.site.rainEffect?.[[0, 6].includes(p.date.getDay()) ? 'weekend' : 'weekday'] : undefined
 
@@ -145,6 +145,8 @@ export function Forecast(p: Props) {
             nowHour={p.dayOffset === 0 ? p.nowHour : null}
             withShow={p.withShow}
             animKey={`${p.dayOffset}-${p.withShow}`}
+            showRange={p.showPlan?.range ?? null}
+            showLabel={p.showPlan?.start != null ? `${hourLabel(p.showPlan.start)} 공연` : '공연 시간대'}
             rainHours={p.rainHours}
             pops={p.pops}
           />
@@ -199,17 +201,7 @@ export function Forecast(p: Props) {
             날보다 주차가 {Math.round((1 - rainFx.factor) * 100)}% 적어서 그만큼 낮췄어요
           </p>
         )}
-        {p.withShow && p.impact && (
-          <p className="mt-3 text-[13px] text-ink-3">
-            2025년 {SCALE_TEXT[p.impact.scale]} 공연은 공연 시간대 주차가 같은 요일·시각보다 {formatPct(p.impact.uplift)} 많았어요(중앙값). 그
-            비율을 16–20시에 반영했어요
-          </p>
-        )}
-        {p.withShow && !p.impact && uplift !== null && (
-          <p className="mt-3 text-[13px] text-ink-3">
-            2025년 공연 시간대는 같은 요일·시각보다 주차가 평균 {formatPct(uplift)} 많았어요. 그 비율을 16–20시에 반영했어요
-          </p>
-        )}
+        {p.showPlan && <p className="mt-3 text-[13px] text-ink-3">{showNote(p.showPlan)}</p>}
       </Card>
     </section>
   )
@@ -273,4 +265,31 @@ function DayStrip({
       })}
     </div>
   )
+}
+
+function pct(r: number) {
+  return `${Math.round(Math.abs(r) * 100)}%`
+}
+
+/** 공연 반영 근거 문장 */
+function showNote(plan: ShowPlan & { event: ParkEvent | null }) {
+  const who = SCALE_TEXT[plan.scale]
+  if (plan.source === 'fixed') {
+    const up = plan.factors[plan.range[0]] - 1
+    return `2025년 ${who} 공연은 공연 시간대 주차가 같은 요일·시각보다 ${formatPct(up)} 많았어요(중앙값). 시작 시각을 읽지 못해 그 비율을 16–20시에 반영했어요`
+  }
+  const s = plan.range[0]
+  const intro =
+    plan.source === 'schedule' && plan.event
+      ? `${plan.event.place.replace('올림픽공원 ', '')} 공연이 ${hourLabel(s)}에 시작해요.`
+      : `${plan.weekend ? '주말' : '평일'} ${hourLabel(s)}에 ${who} 공연이 있다고 가정했어요.`
+  let kMax = 0
+  for (let k = -3; k <= 5; k++) if (s + k < 24 && plan.factors[s + k] > plan.factors[s + kMax]) kMax = k
+  const fMax = plan.factors[s + kMax]
+  const fMin = Math.min(...[0, 1, 2].filter((k) => s + k < 24).map((k) => plan.factors[s + k]))
+  const when = kMax === 0 ? '공연 시작 시각에' : kMax > 0 ? `시작 ${kMax}시간 뒤` : `시작 ${-kMax}시간 전`
+  const base = `2025년 ${plan.weekend ? '주말' : '평일'} ${who} 공연일(${plan.days}일)은`
+  if (fMax < 1.05) return `${intro} ${base} 주차가 평소와 거의 같아서 예보도 거의 바뀌지 않아요`
+  const dip = fMin < 0.95 ? ` 공연 중에는 평소보다 ${pct(1 - fMin)} 적다가` : ''
+  return `${intro} ${base}${dip} ${when} 평소보다 ${pct(fMax - 1)} 많았어요(중앙값). 시작 시각 기준 시간대별 비율을 반영했어요`
 }

@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { LEVEL_COLOR, LEVEL_LABEL, OPEN_FROM, OPEN_TO, SHOW_HOURS, hourLabel, levelOf, type SiteData } from '../lib/model'
+import { LEVEL_COLOR, LEVEL_LABEL, OPEN_FROM, OPEN_TO, hourLabel, levelOf, type SiteData } from '../lib/model'
 
 type Props = {
   site: SiteData
@@ -13,6 +13,9 @@ type Props = {
   rainHours: number[]
   /** 시각별 강수확률 (없으면 null) */
   pops: (number | null)[]
+  /** 공연 구간 [시작, 끝] 시와 이름표 */
+  showRange: [number, number] | null
+  showLabel: string
 }
 
 const PAD_L = 4
@@ -34,7 +37,7 @@ function useWidth() {
   return [ref, w] as const
 }
 
-export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, animKey, rainHours, pops }: Props) {
+export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, animKey, rainHours, pops, showRange, showLabel }: Props) {
   const [wrapRef, W] = useWidth()
   const narrow = W < 480
   const H = narrow ? 220 : 260
@@ -49,8 +52,8 @@ export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, a
   const x = (h: number) => PAD_L + (h - OPEN_FROM) * step + (step - barW) / 2
   const y = (v: number) => PAD_T + plotH - (v / max) * plotH
 
-  const showStart = x(SHOW_HOURS[0])
-  const showEnd = x(SHOW_HOURS[SHOW_HOURS.length - 1]) + barW
+  const showStart = showRange ? x(Math.max(OPEN_FROM, showRange[0])) : 0
+  const showEnd = showRange ? x(Math.min(OPEN_TO, showRange[1])) + barW : 0
 
   return (
     <div className="relative" ref={wrapRef}>
@@ -72,7 +75,7 @@ export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, a
         <line x1={PAD_L} x2={W - PAD_R + 8} y1={PAD_T + plotH} y2={PAD_T + plotH} stroke="var(--color-line-strong)" />
 
         {/* 공연 가정 구간 */}
-        {withShow && (
+        {withShow && showRange && (
           <g>
             <path
               d={`M${showStart} ${PAD_T - 6} V${PAD_T - 12} H${showEnd} V${PAD_T - 6}`}
@@ -81,7 +84,7 @@ export function ForecastChart({ site, values, hour, onHour, nowHour, withShow, a
               strokeWidth="1"
             />
             <text x={(showStart + showEnd) / 2} y={PAD_T - 16} textAnchor="middle" fontSize="12" fill="var(--color-ink-2)">
-              공연 시간대
+              {showLabel}
             </text>
           </g>
         )}
