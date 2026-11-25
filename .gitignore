@@ -16,3 +16,5 @@ all-public-data-*.md
 service-design-*.md
 design-direction.md
 __pycache__/
+# 제출 서류 (개인정보 포함)
+제출/

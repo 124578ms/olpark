@@ -28,7 +28,6 @@ jobs:
         env:
           KMA_KEY: ${{ secrets.KMA_KEY }}
           SEOUL_KEY: ${{ secrets.SEOUL_KEY }}
-          PARKING_KEY: ${{ secrets.PARKING_KEY }}
         run: python scripts/fetch_live.py
       - uses: actions/setup-node@v4
         with:

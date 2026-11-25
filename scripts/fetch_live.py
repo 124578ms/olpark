@@ -5,7 +5,9 @@
 - 서울시 실시간 도시데이터(올림픽공원 POI127): 지금 인구 혼잡도와 12시간 예측
 - 한국체육산업개발 올림픽공원 공연/행사 일정(홈페이지 일정안내가 쓰는 월별 목록): 이번 달·다음 달 공연
 
-키는 환경변수(KMA_KEY, SEOUL_KEY, PARKING_KEY)에서, 없으면 .env에서 읽는다.
+키는 환경변수(KMA_KEY, SEOUL_KEY)에서, 없으면 .env에서 읽는다.
+실시간 주차현황은 기관이 공개한 공용 키 하나만 받는다(문화공공데이터광장에서 발급되는 키는
+'올림픽공원운영현황' API용이라 이 주소에서는 401).
 하나가 실패해도 나머지는 저장한다(그 항목은 null).
 사용법: python scripts/fetch_live.py
 """
@@ -16,7 +18,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 OUT = os.path.join(ROOT, "web", "public", "data", "live.json")
 KST = timezone(timedelta(hours=9))
-# 기관 안내 페이지(ksponco.or.kr/pubData/64)에 공개된 키. 개별 발급 키가 안 될 때 쓴다
+# 기관 안내 페이지(ksponco.or.kr/pubData/64)에 공개된 공용 키. 이 API가 받는 유일한 키
 PARKING_PUBLIC_KEY = "PARKING21803504"
 
 
@@ -31,7 +33,6 @@ def env_keys():
     return {
         "kma": os.environ.get("KMA_KEY") or found.get("KMA_KEY") or found.get("기상청"),
         "seoul": os.environ.get("SEOUL_KEY") or found.get("SEOUL_KEY") or found.get("서울도시데이터"),
-        "parking": os.environ.get("PARKING_KEY") or found.get("PARKING_KEY") or found.get("올림픽공원주차현황"),
     }
 
 
@@ -40,16 +41,13 @@ def get_json(url):
     return json.loads(urllib.request.urlopen(req, timeout=30).read().decode("utf-8"))
 
 
-def parking(key):
-    for k in [key, PARKING_PUBLIC_KEY]:
-        if not k:
-            continue
-        try:
-            data = get_json("https://www.ksponco.or.kr/online/main/parkingorsApi.do?apiKey=" + urllib.parse.quote(k))
-            return {"sum": int(data[0]["parking_sum"]), "gates": ["동2", "남2", "북2"]}
-        except Exception as e:  # noqa: BLE001
-            print("주차현황 실패:", type(e).__name__, str(e)[:80])
-    return None
+def parking():
+    try:
+        data = get_json("https://www.ksponco.or.kr/online/main/parkingorsApi.do?apiKey=" + PARKING_PUBLIC_KEY)
+        return {"sum": int(data[0]["parking_sum"]), "gates": ["동2", "남2", "북2"]}
+    except Exception as e:  # noqa: BLE001
+        print("주차현황 실패:", type(e).__name__, str(e)[:80])
+        return None
 
 
 def kma(key, now):
@@ -176,7 +174,7 @@ def main():
     keys = env_keys()
     live = {
         "updatedAt": now.strftime("%Y-%m-%dT%H:%M"),
-        "parking": parking(keys["parking"]),
+        "parking": parking(),
         "weather": kma(keys["kma"], now),
         "people": seoul(keys["seoul"]),
         "events": events(now),
