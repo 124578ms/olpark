@@ -3,13 +3,15 @@ import { DataMethod } from './components/DataMethod'
 import { Forecast } from './components/Forecast'
 import { Gates } from './components/Gates'
 import { ShowImpact } from './components/ShowImpact'
+import { ShowSchedule } from './components/ShowSchedule'
 import { dayShowPlan, dayWeather, eventsOn, holidayOn, loadLive, popsOn, rainHoursOn, typicalShowPlan, type Live } from './lib/live'
 import { RANGE_DAYS, addDays, forecast, gateLoads, holidayEffectOf, loadSite, nowKST, peakWindow, recommendGate, type SiteData } from './lib/model'
 
 const NAV = [
   { href: '#answer', label: '예보' },
+  { href: '#schedule', label: '공연 일정', short: '일정' },
   { href: '#gates', label: '출입문' },
-  { href: '#shows', label: '공연 영향' },
+  { href: '#shows', label: '공연 영향', short: '영향' },
   { href: '#method', label: '데이터' },
 ]
 
@@ -64,14 +66,21 @@ export default function App() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-line bg-paper/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-[1080px] items-center justify-between px-4 sm:px-8">
-          <a href="#answer" className="inline-flex items-center gap-2 text-[16px] font-semibold tracking-[-0.01em]">
+          <a href="#answer" className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[16px] font-semibold tracking-[-0.01em]">
             <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={22} height={22} />
             올팍 언제 갈까
           </a>
-          <nav aria-label="섹션" className="flex gap-4 text-[13px] text-ink-2 sm:gap-6 sm:text-[14px]">
+          <nav aria-label="섹션" className="flex gap-3 whitespace-nowrap text-[13px] text-ink-2 sm:gap-6 sm:text-[14px]">
             {NAV.map((n) => (
               <a key={n.href} href={n.href} className="transition-colors hover:text-ink">
-                {n.label}
+                {'short' in n && n.short ? (
+                  <>
+                    <span className="sm:hidden">{n.short}</span>
+                    <span className="hidden sm:inline">{n.label}</span>
+                  </>
+                ) : (
+                  n.label
+                )}
               </a>
             ))}
           </nav>
@@ -109,6 +118,18 @@ export default function App() {
               gate={recommendGate(loads)}
               live={live}
             />
+            {live?.events && (
+              <ShowSchedule
+                events={live.events}
+                now={now}
+                onPick={(n) => {
+                  setDayOffset(n)
+                  setHour(null)
+                  setWithShow(null)
+                  document.getElementById('answer')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }}
+              />
+            )}
             <Gates loads={loads} hour={activeHour} best={recommendGate(loads)} rows={site.source.rows} />
             <ShowImpact site={site} />
             <DataMethod site={site} />
